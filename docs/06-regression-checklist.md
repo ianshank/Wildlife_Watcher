@@ -19,7 +19,7 @@ python .agents/harness/orchestrator.py quality
 Expected result:
 
 - Ruff passes.
-- mypy passes.
+- mypy passes on 9 source files (5 kiosk sources + 4 test files).
 - pytest passes.
 - coverage remains at or above 85%.
 
@@ -63,7 +63,7 @@ python .agents/harness/orchestrator.py firmware-build-phase2
 Expected result:
 
 - the shipped Phase 1 firmware baseline still builds against the current SSCMA and MQTT library surface
-- native tests pass for reusable helpers and publish-shaping logic
+- native tests pass for reusable helpers and publish-shaping logic (8 Unity tests covering class_names, PowerManager stubs, and core publish logic)
 - the hardware build still resolves the modular networking and power-management layers
 
 If PlatformIO is not installed, record that gap explicitly in the PR summary instead of silently skipping it.
@@ -83,7 +83,7 @@ Expected result:
 
 - Ruff passes on the typed `numpy` export path and tests
 - mypy passes on the `ml-pipeline` package
-- pytest passes on the export and augmentation tests
+- pytest passes on the export and augmentation tests (14 tests including ExportManifest validation and hypothesis property tests)
 - the CPU-only ONNX smoke check completes without requiring a Jetson runtime
 
 ## Test 6: Reviewer handoff docs

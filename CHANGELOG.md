@@ -6,6 +6,13 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 ### Added
 
+- Extended harness typecheck scope to include `pi-display-node/tests` (9 source files total: 5 kiosk sources + 4 test files).
+- Created `phase2/camera-node-firmware/include/wildlife/class_names.h` abstraction layer for inline class-label lookup without Arduino dependency.
+- Added 4 Unity firmware tests for class_names and PowerManager stubs (8 total native tests).
+- Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
+- Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
+- Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.
+- Created PowerManager stubs (`power_mgr_stubs.cpp`) for native test environment.
 - Repo-local agent harness tasks for linting, type checking, testing, AGENTS coverage, firmware validation, and ML pipeline validation.
 - Localized `AGENTS.md` guidance across the repo plus reusable agent-facing skills under `.agents/skills/`.
 - Phase 2 firmware scaffold under `phase2/camera-node-firmware/` with reusable networking, power, and SSCMA module boundaries.
@@ -15,6 +22,10 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 ### Changed
 
+- Eliminated hard-coded values from firmware tests: topic roots, debounce timing, buffer sizes now derive from config constants.
+- Strengthened ExportManifest API to accept dynamic `Sequence[str]` inputs, normalize to tuple, reject empty/blank class names.
+- Fixed 9 mypy var-annotated errors in test files with explicit type annotations (`queue.Queue[object]`, `dict[int, Any]`).
+- Updated `phase2/camera-node-firmware/src/sscma_io.cpp` to use `kClassNameFallbackBufferSize` constant.
 - Raised the Python quality floor to an enforced 85% coverage threshold via the repo harness.
 - Updated `README.md` to surface the harness command set, reviewer navigation, and non-Jetson next steps.
 - Standardized workspace-level validation through `setup_and_test.ps1` delegating to `.agents/harness/orchestrator.py quality`.

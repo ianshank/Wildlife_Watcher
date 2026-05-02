@@ -10,7 +10,7 @@ from wildlife_kiosk import DetectionEvent, MqttBridge, StatusEvent, ThumbnailEve
 
 
 def test_mqtt_bridge_detection(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     payload = {
@@ -41,7 +41,7 @@ def test_mqtt_bridge_detection(test_config):
 
 
 def test_mqtt_bridge_detection_skips_invalid_bbox(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     payload = {
@@ -63,7 +63,7 @@ def test_mqtt_bridge_detection_skips_invalid_bbox(test_config):
         events.get_nowait()
 
 def test_mqtt_bridge_thumb(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     # Send raw bytes
@@ -78,7 +78,7 @@ def test_mqtt_bridge_thumb(test_config):
 
 
 def test_mqtt_bridge_thumb_decodes_base64(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     payload = base64.b64encode(b"jpeg_bytes")
@@ -90,7 +90,7 @@ def test_mqtt_bridge_thumb_decodes_base64(test_config):
     assert ev.jpeg_bytes == b"jpeg_bytes"
 
 def test_mqtt_bridge_status(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     payload = {
@@ -109,7 +109,7 @@ def test_mqtt_bridge_status(test_config):
 
 
 def test_mqtt_bridge_status_plain_text_fallback(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     msg = MockMessage("wildlife/status/node1", b"offline")
@@ -122,7 +122,7 @@ def test_mqtt_bridge_status_plain_text_fallback(test_config):
     assert ev.ip is None
 
 def test_mqtt_bridge_connect_disconnect(test_config):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
     mock_client = MagicMock()
