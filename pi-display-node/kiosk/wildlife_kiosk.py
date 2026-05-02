@@ -656,7 +656,7 @@ class WildlifeKiosk(QMainWindow):
     def _lookup_meta(self, node_id: str, frame_id: str) -> Any:
         for i in range(min(self.feed_list.count(), 10)):
             item = self.feed_list.item(i)
-            if item is None:
+            if item is None:  # pragma: no cover
                 continue
             data = item.data(QT_USER_ROLE)
             if (data and data.get("node_id") == node_id
@@ -906,5 +906,5 @@ def main() -> int:
     return app.exec_()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
