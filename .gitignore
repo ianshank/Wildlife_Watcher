@@ -41,3 +41,8 @@ ml-pipeline/models/*
 !ml-pipeline/models/.gitkeep
 ml-pipeline/reports/*
 !ml-pipeline/reports/.gitkeep
+# Agent harness runtime memory and logs
+.agents/memory/episodic/
+.agents/memory/*.rotated.md
+.agents/memory/.ralph_progress
+.agents/runtime-logs/

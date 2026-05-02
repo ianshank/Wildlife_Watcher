@@ -17,6 +17,9 @@ ml-pipeline-lint = ["{python}", "-m", "ruff", "check", "--config", "{repo_root}/
 ml-pipeline-typecheck = ["{python}", "-m", "mypy", "--config-file", "{repo_root}/ml-pipeline/pyproject.toml", "{repo_root}/ml-pipeline/src", "{repo_root}/ml-pipeline/tests"]
 ml-pipeline-test = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests"]
 ml-pipeline-smoke = ["{python}", "-m", "wildlife_ml.runtime.onnx_smoke"]
+runtime-lint = ["{python}", "-m", "ruff", "check", ".agents/harness/runtime", ".agents/harness/tests"]
+runtime-typecheck = ["{python}", "-m", "mypy", ".agents/harness/runtime", ".agents/harness/tests"]
+runtime-test = ["{python}", "-m", "pytest", ".agents/harness/tests", "--cov=.agents/harness/runtime", "--cov-report=term-missing", "--cov-fail-under=85"]
 
 [agent_docs]
 required_paths = [
@@ -31,6 +34,9 @@ required_paths = [
   "pi-display-node/schema",
   "pi-display-node/systemd",
   "pi-display-node/tests",
+  ".agents/harness/runtime",
+  ".agents/harness/tests",
+  ".agents/memory",
 ]
 
 ignore_names = [
@@ -40,3 +46,52 @@ ignore_names = [
   ".venv",
   "__pycache__",
 ]
+
+[runtime]
+default_model = "echo"
+acceptance_tasks = ["lint", "typecheck", "test"]
+max_iterations = 25
+iteration_timeout_s = 180
+correlation_prefix = "ww"
+
+[memory]
+root = ".agents/memory"
+index_file = "MEMORY.md"
+episodic_dir = "episodic"
+spec_dir = "spec"
+rotate_after_bytes = 65536
+rotate_keep_tail_bytes = 8192
+gc_heartbeat_iterations = 10
+atomic_write_suffix = ".tmp"
+
+[topology]
+pipeline_default_stages = ["planner", "worker-coder", "worker-reviewer"]
+fanout_default_workers = 3
+expert_pool_min_quorum = 2
+producer_reviewer_max_rounds = 3
+supervisor_escalation_threshold = 2
+
+[ralph]
+max_iterations = 50
+stuck_window = 3
+stuck_action = "escalate"
+sleep_seconds_on_stuck = 5
+require_acceptance_before_signal = true
+progress_marker_file = ".agents/memory/.ralph_progress"
+
+[subprocess]
+default_timeout_s = 120
+truncate_head_bytes = 4096
+truncate_tail_bytes = 4096
+spill_dir = ".agents/runtime-logs"
+spill_threshold_bytes = 16384
+env_allowlist = ["PATH", "HOME", "LANG", "LC_ALL", "PYTHONPATH"]
+env_denylist_substrings = ["TOKEN", "SECRET", "KEY", "PASSWORD"]
+
+[logging]
+json_fields = ["ts", "level", "logger", "msg", "correlation_id", "task", "iteration"]
+
+[edits]
+hash_algo = "sha256"
+hash_prefix_length = 12
+mismatch_behavior = "abort"

@@ -29,6 +29,17 @@
 - Phase 3 tests: `python .agents/harness/orchestrator.py ml-pipeline-test`
 - Phase 3 smoke summary: `python .agents/harness/orchestrator.py ml-pipeline-smoke`
 
+## Runtime (Agent Harness)
+
+- Runtime quality gate: `python .agents/harness/orchestrator.py quality-runtime` (lint + typecheck + test for the runtime package).
+- Single control loop: `python .agents/harness/orchestrator.py runtime-loop --intent "<text>" [--dry-run]`
+- Ralph driver: `python .agents/harness/orchestrator.py ralph-run --intent "<text>" [--max-iterations N] [--dry-run]`
+- Topology patterns: `topology-pipeline`, `topology-fanout`, `topology-producer-reviewer`, `topology-expert-pool`.
+- Memory: `memory-index` to print, `memory-rotate` to archive when the index exceeds `[memory].rotate_after_bytes`.
+- Spec sharding: `python .agents/harness/orchestrator.py spec-shard --shard-id <YYYY-MM-DD-slug>`.
+- Structured JSON logs: set `WILDLIFE_HARNESS_LOG_FORMAT=json` for any of the above.
+- All thresholds (timeouts, byte limits, iteration caps, model selection) live in `.agents/harness.toml` — do not hard-code them in source.
+
 ## Worktree Strategy
 
 - Keep roadmap work isolated from the Phase 1 baseline.
@@ -43,3 +54,8 @@
 - Use `firmware-build.agent.md` for PlatformIO build work.
 - Use `phase2-pir.agent.md` and `phase3-ml.agent.md` when work is explicitly phase-scoped and should stay in `phase2/` or `ml-pipeline/`.
 - Use `.agents/skills/run-quality-gates/` and `.agents/skills/mock-camera-node/` for repeatable command-driven workflows.
+- Use `planner.agent.md` to decompose intent into SPEC shards under `.agents/memory/spec/`.
+- Use `orchestrator-router.agent.md` to pick a multi-agent topology and dispatch workers via `topology-*` tasks.
+- Use `worker-coder.agent.md` (with the `hash-anchored-edit` skill) for the actual code changes; `worker-reviewer.agent.md` for read-only review.
+- Use `memory-curator.agent.md` plus the `memory-curate` skill for index rotation and pruning.
+- Use `.agents/skills/spec-shard-init/` and `.agents/skills/ralph-loop/` for repeatable runtime workflows.
