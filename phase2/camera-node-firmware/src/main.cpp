@@ -28,17 +28,17 @@ std::uint32_t last_heartbeat_ms = 0;
 std::uint32_t frame_counter = 0;
 
 void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, float fps) {
-    StaticJsonDocument<2048> doc;
+    StaticJsonDocument<wildlife::kDetectionPayloadBytes> doc;
     char timestamp[32];
     std::snprintf(timestamp, sizeof(timestamp), "%lu", static_cast<unsigned long>(now_ms));
     doc["ts"] = timestamp;
     doc["node_id"] = wildlife::kCredentials.node_id;
 
     const std::uint32_t current_frame = ++frame_counter;
-    char frame_id[24];
+    char frame_id[wildlife::kFrameIdBufferBytes];
     std::snprintf(frame_id, sizeof(frame_id), "f_%06lu", static_cast<unsigned long>(current_frame));
     doc["frame_id"] = frame_id;
-    doc["model"] = "grove_vision_ai_v2";
+    doc["model"] = wildlife::kModelId;
     doc["fps"] = fps;
 
     JsonArray detections = doc.createNestedArray("detections");
@@ -70,7 +70,7 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
         return;
     }
 
-    char payload[2048];
+    char payload[wildlife::kDetectionPayloadBytes];
     const std::size_t payload_len = serializeJson(doc, payload, sizeof(payload));
     mqtt_publisher.publish_detection(payload, payload_len);
     if (wildlife::should_capture_thumb(max_confidence, wildlife::kThumbPublishThreshold)) {
@@ -84,8 +84,8 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
 }  // namespace
 
 void setup() {
-    Serial.begin(115200);
-    delay(500);
+    Serial.begin(wildlife::kSerialBaud);
+    delay(wildlife::kBootDelayMs);
     Serial.println();
     Serial.printf("[wildlife][I] booting node %s\n", wildlife::kCredentials.node_id);
 
@@ -115,7 +115,7 @@ void loop() {
 
     wildlife::DetectionFrame frame;
     if (!sensor.poll(&frame)) {
-        delay(20);
+        delay(wildlife::kPollIdleDelayMs);
         power_manager.maybe_sleep(false);
         return;
     }

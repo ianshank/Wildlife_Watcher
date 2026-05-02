@@ -197,6 +197,68 @@ void test_should_capture_thumb_respects_threshold() {
         static_cast<std::uint16_t>(kThreshold + 25U), kThreshold));
 }
 
+void test_format_thumb_topic_rejects_null_arguments() {
+    char buf[32]{};
+    TEST_ASSERT_EQUAL_UINT32(0U, static_cast<unsigned int>(
+        wildlife::format_thumb_topic(nullptr, sizeof(buf), "prefix", "frame")));
+    TEST_ASSERT_EQUAL_UINT32(0U, static_cast<unsigned int>(
+        wildlife::format_thumb_topic(buf, 0U, "prefix", "frame")));
+    TEST_ASSERT_EQUAL_UINT32(0U, static_cast<unsigned int>(
+        wildlife::format_thumb_topic(buf, sizeof(buf), nullptr, "frame")));
+    TEST_ASSERT_EQUAL_UINT32(0U, static_cast<unsigned int>(
+        wildlife::format_thumb_topic(buf, sizeof(buf), "prefix", nullptr)));
+}
+
+void test_format_thumb_topic_reports_truncation_via_written_length() {
+    // snprintf returns the number of chars that *would* have been written;
+    // a value >= buffer_size signals truncation. Our caller treats that as failure.
+    char buf[8]{};
+    const auto written = wildlife::format_thumb_topic(
+        buf, sizeof(buf), "wildlife/thumbs", "f_000123");
+    TEST_ASSERT_GREATER_OR_EQUAL_UINT32(static_cast<unsigned int>(sizeof(buf)),
+                                        static_cast<unsigned int>(written));
+}
+
+void test_thumb_payload_zero_budget_rejects_any_payload() {
+    static_assert(wildlife::max_thumb_payload_bytes(0U) == 0U,
+                  "Zero raw budget must produce a zero base64 budget");
+    TEST_ASSERT_TRUE(wildlife::thumb_payload_fits(0U, 0U));
+    TEST_ASSERT_FALSE(wildlife::thumb_payload_fits(1U, 0U));
+}
+
+void test_base64_encoded_length_rounds_up_to_quartet() {
+    static_assert(wildlife::base64_encoded_length(0U) == 0U, "empty -> 0");
+    static_assert(wildlife::base64_encoded_length(1U) == 4U, "1 byte -> 4");
+    static_assert(wildlife::base64_encoded_length(2U) == 4U, "2 bytes -> 4");
+    static_assert(wildlife::base64_encoded_length(3U) == 4U, "3 bytes -> 4");
+    static_assert(wildlife::base64_encoded_length(4U) == 8U, "4 bytes -> 8");
+    TEST_ASSERT_EQUAL_UINT32(4U, static_cast<unsigned int>(wildlife::base64_encoded_length(3U)));
+    TEST_ASSERT_EQUAL_UINT32(8U, static_cast<unsigned int>(wildlife::base64_encoded_length(4U)));
+}
+
+void test_runtime_config_constants_are_consistent() {
+    // The native env should expose every new tunable so that platformio.ini
+    // overrides flow through to firmware code paths and tests alike.
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kSerialBaud));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kBootDelayMs));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kDetectionPayloadBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kFrameIdBufferBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttBufferBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttKeepAliveSeconds));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttSocketTimeoutSeconds));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttReconnectBackoffMs));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttStatusBufferBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttWillBufferBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kMqttTopicBufferBytes));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kWifiConnectTimeoutMs));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kWifiPollIntervalMs));
+    TEST_ASSERT_NOT_NULL(wildlife::kModelId);
+    // The MQTT buffer must comfortably hold a base64-encoded thumb plus headers.
+    TEST_ASSERT_GREATER_THAN_UINT32(
+        static_cast<unsigned int>(wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes)),
+        static_cast<unsigned int>(wildlife::kMqttBufferBytes));
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -223,5 +285,10 @@ int main(int argc, char** argv) {
     RUN_TEST(test_score_to_confidence_maps_zero_and_full_range);
     RUN_TEST(test_track_max_score_keeps_running_maximum);
     RUN_TEST(test_should_capture_thumb_respects_threshold);
+    RUN_TEST(test_format_thumb_topic_rejects_null_arguments);
+    RUN_TEST(test_format_thumb_topic_reports_truncation_via_written_length);
+    RUN_TEST(test_thumb_payload_zero_budget_rejects_any_payload);
+    RUN_TEST(test_base64_encoded_length_rounds_up_to_quartet);
+    RUN_TEST(test_runtime_config_constants_are_consistent);
     return UNITY_END();
 }

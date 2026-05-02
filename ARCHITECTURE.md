@@ -69,7 +69,7 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
-Native test coverage includes 21 Unity tests covering class_names lookup, MQTT thumb-budget and topic-format helpers, PowerManager stubs, the pure sleep-decision policy, SSCMA detection-decode helpers, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
+Native test coverage includes 26 Unity tests covering class_names lookup, MQTT thumb-budget and topic-format helpers (including null-arg, truncation, and zero-budget edge cases), runtime config-constant exposure, PowerManager stubs, the pure sleep-decision policy, SSCMA detection-decode helpers, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
 
 The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
 

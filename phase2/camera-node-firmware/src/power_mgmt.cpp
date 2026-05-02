@@ -30,7 +30,7 @@ void PowerManager::maybe_sleep(bool saw_activity) {
 
     esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(kPirPin), 1);
     esp_sleep_enable_timer_wakeup(static_cast<std::uint64_t>(kDeepSleepSeconds) * 1000000ULL);
-    delay(20);
+    delay(kDeepSleepSettleMs);
     esp_deep_sleep_start();
 #else
     (void)saw_activity;

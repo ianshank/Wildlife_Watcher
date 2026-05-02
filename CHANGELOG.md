@@ -15,6 +15,11 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Added 4 Unity firmware tests covering MQTT thumb-budget and topic-format helpers (16 total native tests).
 - Added `phase2/camera-node-firmware/include/wildlife/sscma_decode.h` with pure constexpr detection-decode helpers (class-id mask, score→confidence, max-score tracking, thumb-publish gate) used by `main.cpp::publish_frame` and covered by native Unity tests without SSCMA/Wire/Serial stubs.
 - Added 5 Unity firmware tests covering SSCMA detection-decode helpers (21 total native tests).
+
+### Changed
+
+- Lifted previously hard-coded Phase 2 firmware tunables (serial baud, boot/poll/sleep-settle delays, detection/MQTT/WiFi buffer sizes, MQTT keepalive/socket-timeout/reconnect-backoff/QoS/will/topic-buffer sizes, WiFi connect timeout, model id) into overridable `WILDLIFE_*` macros + `kSerialBaud`, `kBootDelayMs`, `kPollIdleDelayMs`, `kDeepSleepSettleMs`, `kDetectionPayloadBytes`, `kFrameIdBufferBytes`, `kMqttBufferBytes`, `kMqttKeepAliveSeconds`, `kMqttSocketTimeoutSeconds`, `kMqttReconnectBackoffMs`, `kMqttStatusBufferBytes`, `kMqttWillBufferBytes`, `kMqttTopicBufferBytes`, `kMqttStatusQos`, `kWifiConnectTimeoutMs`, `kWifiPollIntervalMs`, `kModelId` constants in `phase2/camera-node-firmware/include/wildlife/config.h`, eliminating magic numbers from `main.cpp`, `net_mqtt.cpp`, `net_wifi.cpp`, and `power_mgmt.cpp`.
+- Added 5 Unity firmware tests covering `format_thumb_topic` null guards, truncation reporting, zero-budget rejection, base64 quartet rounding, and runtime config-constant exposure (26 total native tests).
 - Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
 - Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
 - Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.
