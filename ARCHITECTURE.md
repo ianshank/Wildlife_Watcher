@@ -20,9 +20,9 @@ The deployed system captures detections on a Grove Vision AI V2 camera stack, fo
 | --- | --- | --- |
 | Camera node firmware | PlatformIO, Arduino, XIAO ESP32S3 Sense | Bridges SSCMA detections from the Grove Vision AI V2 into MQTT topics and publishes node status. |
 | Display node broker | Mosquitto on Raspberry Pi Zero 2 W | Provides the local MQTT transport and retained status channel. |
-| Kiosk application | Python, PyQt5, SQLite, paho-mqtt | Subscribes to MQTT topics, persists observations, manages thumbnails, and renders the touch UI. |
-| Phase 2 firmware slice | PlatformIO native and hardware environments | Isolates reusable power-management and networking refactors before they move back into the main firmware tree. |
-| Phase 3 ML pipeline | Python, numpy, pytest, mypy | Validates dataset prep, export helpers, Vela parsing, and smoke checks for the Ethos-U55 deployment path. |
+| Kiosk application | Python, PyQt5, SQLite, paho-mqtt | Subscribes to MQTT topics, persists observations, manages thumbnails, and renders the touch UI. Tested via pytest with 98.85% branch coverage. |
+| Phase 2 firmware slice | PlatformIO native and hardware environments | Isolates reusable power-management and networking refactors before they move back into the main firmware tree. Includes 8 Unity native tests for class_names, PowerManager stubs, and publish logic. |
+| Phase 3 ML pipeline | Python, numpy, pytest, mypy | Validates dataset prep, export helpers (including ExportManifest dataclass), Vela parsing, and smoke checks for the Ethos-U55 deployment path. Includes 14 tests with hypothesis property testing. |
 
 ## Component View — Display Node
 
@@ -63,9 +63,27 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `net_mqtt.*` | Topic formatting and publish lifecycle. |
 | `sscma_io.*` | Grove Vision AI V2 polling and detection shaping. |
 | `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. |
+| `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
+Native test coverage includes 8 Unity tests covering class_names lookup, PowerManager stubs, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
+
 The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
+
+## Component View — ML Pipeline
+
+The Phase 3 ML pipeline under `ml-pipeline/src/wildlife_ml/` provides typed helpers for dataset preparation, model export, and validation.
+
+| Component | Responsibility |
+| --- | --- |
+| `data.*` | CUB-200-2011 dataset loading, preprocessing, and augmentation helpers. |
+| `export.manifest` | `ExportManifest` frozen dataclass linking ONNX models to class labels and kiosk metadata. Provides `from_config()`, `to_dict()`, `to_summary()` with dynamic input normalization. |
+| `export.onnx` | ONNX export helpers including `prepare_image_batch` for input preprocessing. |
+| `export.tflite` | TFLite conversion helpers for Ethos-U55 deployment path. |
+| `export.vela` | Vela report parsing for Ethos-U55 performance analysis. |
+| `runtime.onnx_smoke` | CPU-only ONNX smoke validation without Jetson dependencies. |
+
+Test coverage includes 14 tests with hypothesis property testing for shape/dtype invariants and ExportManifest validation (round-trip, normalization, blank-label rejection).
 
 ## Data and Configuration Boundaries
 

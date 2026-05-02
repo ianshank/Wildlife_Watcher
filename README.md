@@ -122,15 +122,15 @@ Run the standard checks through the repo harness so local runs and CI stay align
 ./setup_and_test.ps1
 python .agents/harness/orchestrator.py quality
 python .agents/harness/orchestrator.py lint
-python .agents/harness/orchestrator.py typecheck
-python .agents/harness/orchestrator.py test
+python .agents/harness/orchestrator.py typecheck  # covers 9 source files (5 kiosk + 4 tests)
+python .agents/harness/orchestrator.py test       # 45 tests @ 98.85% branch coverage
 python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-build-phase2
-python .agents/harness/orchestrator.py firmware-test-native
+python .agents/harness/orchestrator.py firmware-test-native  # 8 Unity tests
 python .agents/harness/orchestrator.py ml-pipeline-lint
 python .agents/harness/orchestrator.py ml-pipeline-typecheck
-python .agents/harness/orchestrator.py ml-pipeline-test
+python .agents/harness/orchestrator.py ml-pipeline-test  # 14 tests including hypothesis property tests
 python .agents/harness/orchestrator.py ml-pipeline-smoke
 python .agents/harness/orchestrator.py mock-publish-detection --dry-run
 ```
