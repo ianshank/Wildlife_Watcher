@@ -8,6 +8,7 @@
 #include "wildlife/net_mqtt.h"
 #include "wildlife/net_wifi.h"
 #include "wildlife/power_mgmt.h"
+#include "wildlife/sscma_decode.h"
 #include "wildlife/sscma_io.h"
 #include "wildlife/topic_names.h"
 
@@ -45,7 +46,7 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
     std::uint16_t max_confidence = 0;
 
     for (const auto& box : frame.boxes) {
-        const auto class_id = static_cast<std::uint8_t>(box.target & 0xFF);
+        const auto class_id = wildlife::class_id_from_target(box.target);
         if (!sensor.should_publish(class_id, now_ms, wildlife::kClassDebounceMs)) {
             continue;
         }
@@ -54,16 +55,14 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
         JsonObject detection = detections.createNestedObject();
         detection["class_id"] = box.target;
         detection["class_name"] = sensor.class_name(class_id);
-        detection["confidence"] = box.score / 100.0F;
+        detection["confidence"] = wildlife::score_to_confidence(box.score);
         JsonArray bbox = detection.createNestedArray("bbox");
         bbox.add(box.x);
         bbox.add(box.y);
         bbox.add(box.w);
         bbox.add(box.h);
 
-        if (box.score > max_confidence) {
-            max_confidence = box.score;
-        }
+        max_confidence = wildlife::track_max_score(max_confidence, box.score);
     }
 
     if (!published_any) {
@@ -74,7 +73,7 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
     char payload[2048];
     const std::size_t payload_len = serializeJson(doc, payload, sizeof(payload));
     mqtt_publisher.publish_detection(payload, payload_len);
-    if (max_confidence >= wildlife::kThumbPublishThreshold) {
+    if (wildlife::should_capture_thumb(max_confidence, wildlife::kThumbPublishThreshold)) {
         String encoded_thumb;
         if (sensor.capture_thumb(&encoded_thumb)) {
             mqtt_publisher.publish_thumb(frame_id, encoded_thumb.c_str(), encoded_thumb.length());

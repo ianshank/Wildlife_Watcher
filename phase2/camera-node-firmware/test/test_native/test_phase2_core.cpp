@@ -12,6 +12,7 @@
 #include "wildlife/net_mqtt_format.h"
 #include "wildlife/power_mgmt.h"
 #include "wildlife/power_policy.h"
+#include "wildlife/sscma_decode.h"
 #include "wildlife/topic_names.h"
 
 void setUp() {}
@@ -159,6 +160,43 @@ void test_sleep_decision_idle_with_pir_low_enters_deep_sleep() {
     TEST_ASSERT_TRUE(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kEnterDeepSleep);
 }
 
+void test_class_id_from_target_extracts_low_byte() {
+    static_assert(wildlife::class_id_from_target(0x0142U) == 0x42U,
+                  "class_id should be the low byte of target");
+    TEST_ASSERT_EQUAL_UINT8(0x42U, wildlife::class_id_from_target(0x0142U));
+}
+
+void test_class_id_from_target_handles_byte_boundaries() {
+    TEST_ASSERT_EQUAL_UINT8(0x00U, wildlife::class_id_from_target(0x0000U));
+    TEST_ASSERT_EQUAL_UINT8(0xFFU, wildlife::class_id_from_target(0x00FFU));
+    TEST_ASSERT_EQUAL_UINT8(0xFFU, wildlife::class_id_from_target(0xFFFFU));
+}
+
+void test_score_to_confidence_maps_zero_and_full_range() {
+    TEST_ASSERT_FLOAT_WITHIN(1e-6F, 0.0F, wildlife::score_to_confidence(0U));
+    TEST_ASSERT_FLOAT_WITHIN(1e-6F, 1.0F, wildlife::score_to_confidence(100U));
+    TEST_ASSERT_FLOAT_WITHIN(1e-6F, 0.5F, wildlife::score_to_confidence(50U));
+}
+
+void test_track_max_score_keeps_running_maximum() {
+    std::uint16_t running = 0U;
+    running = wildlife::track_max_score(running, 30U);
+    running = wildlife::track_max_score(running, 80U);
+    running = wildlife::track_max_score(running, 50U);
+    TEST_ASSERT_EQUAL_UINT16(80U, running);
+    // Tie keeps existing maximum.
+    TEST_ASSERT_EQUAL_UINT16(80U, wildlife::track_max_score(80U, 80U));
+}
+
+void test_should_capture_thumb_respects_threshold() {
+    constexpr std::uint16_t kThreshold = wildlife::kThumbPublishThreshold;
+    TEST_ASSERT_TRUE(wildlife::should_capture_thumb(kThreshold, kThreshold));
+    TEST_ASSERT_FALSE(wildlife::should_capture_thumb(
+        static_cast<std::uint16_t>(kThreshold - 1U), kThreshold));
+    TEST_ASSERT_TRUE(wildlife::should_capture_thumb(
+        static_cast<std::uint16_t>(kThreshold + 25U), kThreshold));
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -180,5 +218,10 @@ int main(int argc, char** argv) {
     RUN_TEST(test_sleep_decision_activity_stays_awake);
     RUN_TEST(test_sleep_decision_pir_pin_high_stays_awake);
     RUN_TEST(test_sleep_decision_idle_with_pir_low_enters_deep_sleep);
+    RUN_TEST(test_class_id_from_target_extracts_low_byte);
+    RUN_TEST(test_class_id_from_target_handles_byte_boundaries);
+    RUN_TEST(test_score_to_confidence_maps_zero_and_full_range);
+    RUN_TEST(test_track_max_score_keeps_running_maximum);
+    RUN_TEST(test_should_capture_thumb_respects_threshold);
     return UNITY_END();
 }

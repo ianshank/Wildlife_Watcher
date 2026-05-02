@@ -13,6 +13,8 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Added 4 Unity firmware tests covering the PowerManager sleep-decision branches (12 total native tests).
 - Added `phase2/camera-node-firmware/include/wildlife/net_mqtt_format.h` so the Phase 2 MQTT thumb budget and frame-topic formatting logic can be exercised in native tests without a `PubSubClient` stub.
 - Added 4 Unity firmware tests covering MQTT thumb-budget and topic-format helpers (16 total native tests).
+- Added `phase2/camera-node-firmware/include/wildlife/sscma_decode.h` with pure constexpr detection-decode helpers (class-id mask, score→confidence, max-score tracking, thumb-publish gate) used by `main.cpp::publish_frame` and covered by native Unity tests without SSCMA/Wire/Serial stubs.
+- Added 5 Unity firmware tests covering SSCMA detection-decode helpers (21 total native tests).
 - Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
 - Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
 - Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.
