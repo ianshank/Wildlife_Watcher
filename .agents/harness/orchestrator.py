@@ -171,6 +171,11 @@ def task_ml_pipeline_typecheck(args: argparse.Namespace, context: HarnessContext
     return run_named_command("ml-pipeline-typecheck", context, args.dry_run)
 
 
+@register_task("ml-pipeline-lint")
+def task_ml_pipeline_lint(args: argparse.Namespace, context: HarnessContext) -> int:
+    return run_named_command("ml-pipeline-lint", context, args.dry_run)
+
+
 @register_task("ml-pipeline-test")
 def task_ml_pipeline_test(args: argparse.Namespace, context: HarnessContext) -> int:
     return run_named_command("ml-pipeline-test", context, args.dry_run)

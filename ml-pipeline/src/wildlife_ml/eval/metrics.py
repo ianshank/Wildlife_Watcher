@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import numpy as np
-
 from wildlife_ml.types import Float32Tensor, Int64Tensor
 
 
@@ -22,7 +20,11 @@ def intersection_over_union(box_a: Int64Tensor, box_b: Int64Tensor) -> float:
     return inter_area / union_area
 
 
-def precision_recall(true_positive: int, false_positive: int, false_negative: int) -> tuple[float, float]:
+def precision_recall(
+    true_positive: int,
+    false_positive: int,
+    false_negative: int,
+) -> tuple[float, float]:
     precision_denominator = true_positive + false_positive
     recall_denominator = true_positive + false_negative
     precision = 0.0 if precision_denominator == 0 else true_positive / precision_denominator

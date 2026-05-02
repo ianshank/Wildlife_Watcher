@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
-
-from wildlife_ml.export.vela import assert_minimum_npu_coverage, parse_vela_report
+from wildlife_ml.export.vela import (
+    assert_minimum_npu_coverage,
+    parse_vela_report,
+)
 
 
 def test_parse_vela_report_extracts_summary() -> None:

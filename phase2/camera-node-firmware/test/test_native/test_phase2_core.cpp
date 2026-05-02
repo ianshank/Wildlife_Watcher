@@ -5,6 +5,10 @@
 #include "wildlife/fps_meter.h"
 #include "wildlife/topic_names.h"
 
+void setUp() {}
+
+void tearDown() {}
+
 void test_topic_names_are_formatted() {
     const auto topics = wildlife::build_topic_names("feeder-01");
     TEST_ASSERT_EQUAL_STRING("wildlife/detections/feeder-01", topics.detections.data());

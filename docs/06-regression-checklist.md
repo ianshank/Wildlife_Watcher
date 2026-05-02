@@ -55,12 +55,14 @@ Expected result:
 If the Phase 2 firmware tree changed and PlatformIO is available locally, run:
 
 ```powershell
+python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-test-native
 python .agents/harness/orchestrator.py firmware-build-phase2
 ```
 
 Expected result:
 
+- the shipped Phase 1 firmware baseline still builds against the current SSCMA and MQTT library surface
 - native tests pass for reusable helpers and publish-shaping logic
 - the hardware build still resolves the modular networking and power-management layers
 
@@ -71,6 +73,7 @@ If PlatformIO is not installed, record that gap explicitly in the PR summary ins
 If the ML pipeline changed, run the full typed export path:
 
 ```powershell
+python .agents/harness/orchestrator.py ml-pipeline-lint
 python .agents/harness/orchestrator.py ml-pipeline-typecheck
 python .agents/harness/orchestrator.py ml-pipeline-test
 python .agents/harness/orchestrator.py ml-pipeline-smoke
@@ -78,6 +81,7 @@ python .agents/harness/orchestrator.py ml-pipeline-smoke
 
 Expected result:
 
+- Ruff passes on the typed `numpy` export path and tests
 - mypy passes on the `ml-pipeline` package
 - pytest passes on the export and augmentation tests
 - the CPU-only ONNX smoke check completes without requiring a Jetson runtime
@@ -99,5 +103,5 @@ Each of those files should agree on three facts:
 
 ## Validation Gaps
 
-- This workspace currently has no `.git` metadata, so actual branch, push, and PR creation cannot be validated here.
+- The repo is Git-backed now, but GitHub repository settings should still be checked so the default branch is `main` rather than stale `civ` metadata.
 - PlatformIO-based checks depend on a local toolchain and may need to be called out as not run.

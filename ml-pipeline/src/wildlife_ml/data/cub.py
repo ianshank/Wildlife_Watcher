@@ -12,7 +12,10 @@ class Sample(TypedDict):
     bbox: tuple[int, int, int, int]
 
 
-def load_samples(metadata_csv: Path, allowed_species: Collection[str] | None = None) -> list[Sample]:
+def load_samples(
+    metadata_csv: Path,
+    allowed_species: Collection[str] | None = None,
+) -> list[Sample]:
     rows: list[Sample] = []
     allowed = set(allowed_species) if allowed_species is not None else None
     with metadata_csv.open(newline="", encoding="utf-8") as handle:

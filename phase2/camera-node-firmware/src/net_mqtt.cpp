@@ -5,6 +5,14 @@
 
 namespace wildlife {
 
+namespace {
+
+std::size_t max_thumb_payload_bytes() {
+    return encode_base64_length(kMaxThumbBytes);
+}
+
+}  // namespace
+
 void MqttPublisher::begin() {
     client_.setBufferSize(24 * 1024);
     client_.setKeepAlive(45);
@@ -30,8 +38,7 @@ void MqttPublisher::ensure_connected() {
             1,
             true,
             will_buffer,
-            false,
-            will_length);
+            false);
         if (ok) {
             Serial.println("[wildlife][I] MQTT connected");
         } else {
@@ -73,24 +80,27 @@ bool MqttPublisher::publish_detection(const char* payload, std::size_t payload_l
         false);
 }
 
-bool MqttPublisher::publish_thumb(const char* frame_id, const std::uint8_t* jpeg, std::size_t jpeg_len) {
-    if (jpeg == nullptr || jpeg_len == 0 || jpeg_len > kMaxThumbBytes) {
+bool MqttPublisher::publish_thumb(const char* frame_id, const char* encoded_jpeg, std::size_t encoded_len) {
+    if (encoded_jpeg == nullptr || encoded_len == 0) {
         return false;
     }
 
-    const std::size_t encoded_length = encode_base64_length(jpeg_len);
-    static std::uint8_t encoded_buffer[22 * 1024];
-    if (encoded_length + 1 > sizeof(encoded_buffer)) {
-        Serial.printf("[wildlife][W] thumb too large for buffer (%u bytes)\n", static_cast<unsigned>(encoded_length));
+    const std::size_t max_payload = max_thumb_payload_bytes();
+    if (encoded_len > max_payload) {
+        Serial.printf(
+            "[wildlife][W] thumb too large for MQTT (%u b64 bytes > %u)\n",
+            static_cast<unsigned>(encoded_len),
+            static_cast<unsigned>(max_payload));
         return false;
     }
-
-    const std::size_t actual_length = encode_base64(jpeg, jpeg_len, encoded_buffer);
-    encoded_buffer[actual_length] = 0;
 
     char topic[96];
     std::snprintf(topic, sizeof(topic), "%s/%s", topics_.thumbs_prefix.data(), frame_id);
-    return client_.publish(topic, encoded_buffer, actual_length, true);
+    return client_.publish(
+        topic,
+        reinterpret_cast<const std::uint8_t*>(encoded_jpeg),
+        encoded_len,
+        true);
 }
 
 }  // namespace wildlife

@@ -12,6 +12,11 @@
 # PlatformIO build output
 **/.pio/
 
+# Editor and workspace metadata
+.vscode/
+.vs/
+*.code-workspace
+
 # Local secrets
 **/secrets.h
 

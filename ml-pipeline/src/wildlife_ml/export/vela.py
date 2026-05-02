@@ -29,11 +29,18 @@ def parse_vela_report(report_text: str) -> VelaSummary:
 def assert_minimum_npu_coverage(summary: VelaSummary, minimum_percent: float = 95.0) -> None:
     if summary.npu_coverage_percent < minimum_percent:
         raise ValueError(
-            f"NPU coverage {summary.npu_coverage_percent:.2f}% is below the floor of {minimum_percent:.2f}%"
+            "NPU coverage "
+            f"{summary.npu_coverage_percent:.2f}% is below the floor of "
+            f"{minimum_percent:.2f}%"
         )
 
 
-def build_vela_command(tflite_model: Path, output_dir: Path, *, accelerator_config: str = "ethos-u55-128") -> list[str]:
+def build_vela_command(
+    tflite_model: Path,
+    output_dir: Path,
+    *,
+    accelerator_config: str = "ethos-u55-128",
+) -> list[str]:
     return [
         "vela",
         str(tflite_model),

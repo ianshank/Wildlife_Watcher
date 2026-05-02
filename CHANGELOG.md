@@ -18,9 +18,15 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Raised the Python quality floor to an enforced 85% coverage threshold via the repo harness.
 - Updated `README.md` to surface the harness command set, reviewer navigation, and non-Jetson next steps.
 - Standardized workspace-level validation through `setup_and_test.ps1` delegating to `.agents/harness/orchestrator.py quality`.
+- Aligned GitHub Actions with the repo harness by routing Python quality through the shared task surface and enforcing the same 85% coverage floor in CI.
+- Added ML pipeline validation to GitHub Actions and updated repo docs to reflect the live Git-backed state and `main` branch base.
+- Added a dedicated `ml-pipeline-lint` harness task so Ruff coverage for typed `numpy` code matches the documented CI and review surface.
+- Normalized repository line-ending policy through `.gitattributes` and expanded `.gitignore` to keep local editor metadata out of the PR surface.
 
 ### Fixed
 
 - Hardened kiosk regressions around MQTT lifecycle, UI edge flows, storage behavior, and thumbnail handling.
 - Added editor-compatibility wrappers and stub headers for the original firmware tree and the Phase 2 firmware tree.
 - Removed stale Jetson-oriented scope from project documentation and phase planning.
+- Repaired the firmware SSCMA thumbnail and class-name integration for the current Seeed library contract in both the shipped and Phase 2 firmware paths.
+- Restored PlatformIO native test discovery for the Phase 2 firmware suite and aligned embedded builds on the required C++17 mode.
