@@ -15,7 +15,7 @@ from wildlife_kiosk import (
 
 @pytest.fixture
 def kiosk_app(qtbot, test_config, mock_db_path):
-    events = queue.Queue()
+    events: queue.Queue[object] = queue.Queue()
     storage = Storage(mock_db_path)
     bridge = MqttBridge(test_config, events)
 

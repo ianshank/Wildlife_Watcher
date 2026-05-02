@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from wildlife_ml.export.manifest import ExportManifest
+from wildlife_ml.export.onnx import OnnxExportConfig
+
+
+def test_manifest_round_trip() -> None:
+    cfg = OnnxExportConfig(image_size=(416, 416), opset=17)
+    m = ExportManifest.from_config(
+        model_path=Path("model.onnx"),
+        class_names=("bird", "cat", "dog"),
+        config=cfg,
+    )
+    assert m.model_path == Path("model.onnx")
+    assert m.class_names == ("bird", "cat", "dog")
+    assert m.image_size == (416, 416)
+    assert m.opset == 17
+
+
+def test_manifest_rejects_empty_class_names() -> None:
+    with pytest.raises(ValueError, match="class_names must not be empty"):
+        ExportManifest(
+            model_path=Path("model.onnx"),
+            class_names=(),
+            image_size=(320, 320),
+            opset=13,
+        )
+
+
+def test_manifest_image_size_comes_from_config() -> None:
+    cfg = OnnxExportConfig(image_size=(224, 224))
+    m = ExportManifest.from_config(
+        model_path=Path("weights.onnx"),
+        class_names=("bird",),
+        config=cfg,
+    )
+    assert m.image_size == cfg.image_size

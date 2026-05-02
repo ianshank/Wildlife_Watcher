@@ -4,6 +4,7 @@ import contextlib
 import queue
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -228,7 +229,7 @@ def test_main_starts_components_and_registers_shutdown(monkeypatch, tmp_path):
             return 0
 
     fake_app = FakeApp()
-    signal_handlers = {}
+    signal_handlers: dict[int, Any] = {}
 
     monkeypatch.setattr(wildlife_kiosk, "load_config", lambda: cfg)
     monkeypatch.setattr(wildlife_kiosk, "Storage", lambda path: fake_storage)
