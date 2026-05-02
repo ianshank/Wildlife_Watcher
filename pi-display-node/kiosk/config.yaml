@@ -1,0 +1,33 @@
+# /etc/wildlife/config.yaml — wildlife-kiosk runtime configuration.
+
+mqtt:
+  host: localhost
+  port: 1883
+  username: __BROKER_USER__
+  password: __BROKER_PASS__
+  client_id: wildlife-kiosk
+  keepalive: 60
+  topics:
+    detections: wildlife/detections/+
+    thumbs:     wildlife/thumbs/+/+
+    status:     wildlife/status/+
+
+storage:
+  db_path: /var/lib/wildlife/observations.db
+  thumb_dir: /var/lib/wildlife/thumbs
+  retain_days: 30        # purge observations older than this on startup
+
+ui:
+  fullscreen: true
+  screen_width: 1024
+  screen_height: 600
+  max_feed_rows: 200
+  thumb_grid_cols: 4
+  thumb_grid_rows: 3
+  refresh_ms: 250
+  classes_to_highlight:  # bold these class names in the feed
+    - bird
+    - cat
+    - dog
+    - squirrel
+  min_confidence_to_show: 0.40

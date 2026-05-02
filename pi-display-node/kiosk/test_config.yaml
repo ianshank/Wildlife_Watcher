@@ -1,0 +1,22 @@
+mqtt:
+  client_id: "wildlife-kiosk-test"
+  host: "127.0.0.1"
+  port: 1883
+  keepalive: 60
+  username: "testuser"
+  password: "testpassword"
+  topics:
+    detections: "wildlife/detections/+"
+    thumbs: "wildlife/thumbs/+/+"
+    status: "wildlife/status/+"
+
+ui:
+  fullscreen: false
+  screen_width: 800
+  screen_height: 480
+  thumb_grid_cols: 4
+  thumb_grid_rows: 3
+  max_feed_rows: 50
+  min_confidence_to_show: 0.5
+  refresh_ms: 100
+  classes_to_highlight: ["bird", "cat"]

@@ -1,0 +1,19 @@
+[Unit]
+Description=Wildlife Watcher kiosk readiness check
+Documentation=file:///home/__INSTALL_USER__/wildlife-watcher-phase1/README.md
+After=network-online.target mosquitto.service
+Wants=network-online.target
+Requires=mosquitto.service
+
+# This unit ensures Mosquitto is up before the user's X autostart fires the
+# kiosk. The kiosk itself runs under the user's X session (started from
+# .bash_profile on tty1 auto-login), not as a system service, because PyQt5
+# needs a real DISPLAY and X authority on the Pi Zero 2 W's matchbox session.
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'systemctl is-active --quiet mosquitto'
+
+[Install]
+WantedBy=multi-user.target

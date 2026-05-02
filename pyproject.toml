@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wildlife-watcher-phase1"
+version = "0.1.0"
+description = "Wildlife Watcher Phase 1 kiosk, firmware, and tooling"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "paho-mqtt>=1.6.1,<2.0",
+    "PyQt5",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "hypothesis>=6.131.0",
+    "mypy>=1.15.0",
+    "numpy>=1.26,<3.0",
+    "pre-commit>=4.1.0",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock>=3.14.0",
+    "pytest-qt",
+    "ruff>=0.11.0",
+    "tomli>=2.0.1; python_version < '3.11'",
+    "types-PyYAML>=6.0.12.20250402",
+]
+
+[tool.setuptools]
+package-dir = {"" = "pi-display-node/kiosk"}
+py-modules = ["wildlife_kiosk"]
+
+[tool.pytest.ini_options]
+addopts = "-v --tb=short --strict-markers"
+testpaths = ["pi-display-node/tests"]
+qt_api = "pyqt5"
+markers = [
+    "unit: fast tests that do not require external services or hardware",
+    "integration: tests that exercise process or network boundaries",
+    "hardware: tests that require attached Raspberry Pi, XIAO, Grove, or display hardware",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["pi-display-node/kiosk"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["pi-display-node/kiosk", "pi-display-node/tests"]
+exclude = [
+    ".venv",
+    "camera-node-firmware/.pio",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "N", "PTH", "RUF", "SIM", "NPY"]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["mousePressEvent", "resizeEvent"]
+
+[tool.ruff.lint.per-file-ignores]
+"pi-display-node/tests/*.py" = ["N802", "N803", "N806"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests"]
+check_untyped_defs = true
+exclude = ["^\\.venv/", "^camera-node-firmware/\\.pio/"]
+no_implicit_optional = true
+pretty = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["PyQt5.*", "paho", "paho.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tomli"]
+ignore_missing_imports = true

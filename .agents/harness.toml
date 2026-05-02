@@ -1,0 +1,41 @@
+[project]
+name = "wildlife-watcher-phase1"
+wildlife_config = "pi-display-node/kiosk/test_config.yaml"
+pythonpath = [
+  "pi-display-node/kiosk",
+  "ml-pipeline/src",
+]
+
+[commands]
+lint = ["{python}", "-m", "ruff", "check", "pi-display-node/kiosk", "pi-display-node/tests", ".agents/harness/orchestrator.py"]
+typecheck = ["{python}", "-m", "mypy", "pi-display-node/kiosk/wildlife_kiosk.py", ".agents/harness/orchestrator.py"]
+test = ["{python}", "-m", "pytest", "--cov=pi-display-node/kiosk", "--cov-report=term-missing", "--cov-fail-under=85"]
+firmware-build = ["platformio", "run", "-d", "{repo_root}/camera-node-firmware"]
+firmware-build-phase2 = ["platformio", "run", "-d", "{repo_root}/phase2/camera-node-firmware"]
+firmware-test-native = ["platformio", "test", "-e", "native", "-d", "{repo_root}/phase2/camera-node-firmware"]
+ml-pipeline-typecheck = ["{python}", "-m", "mypy", "--config-file", "{repo_root}/ml-pipeline/pyproject.toml", "{repo_root}/ml-pipeline/src", "{repo_root}/ml-pipeline/tests"]
+ml-pipeline-test = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests"]
+ml-pipeline-smoke = ["{python}", "-m", "wildlife_ml.runtime.onnx_smoke"]
+
+[agent_docs]
+required_paths = [
+  ".",
+  "camera-node-firmware",
+  "camera-node-firmware/include",
+  "camera-node-firmware/src",
+  "docs",
+  "pi-display-node",
+  "pi-display-node/kiosk",
+  "pi-display-node/mosquitto",
+  "pi-display-node/schema",
+  "pi-display-node/systemd",
+  "pi-display-node/tests",
+]
+
+ignore_names = [
+  ".git",
+  ".github",
+  ".agents",
+  ".venv",
+  "__pycache__",
+]

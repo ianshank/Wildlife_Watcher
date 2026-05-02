@@ -1,0 +1,6 @@
+paho-mqtt>=1.6.1,<2.0
+PyYAML>=6.0
+pytest
+pytest-qt
+pytest-cov
+PyQt5
