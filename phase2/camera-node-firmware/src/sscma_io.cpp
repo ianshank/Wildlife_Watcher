@@ -53,7 +53,7 @@ bool SscmaSensor::should_publish(std::uint8_t class_id, std::uint32_t now_ms, st
 }
 
 String SscmaSensor::class_name(std::uint8_t class_id) const {
-    char buf[16];
+    char buf[kClassNameFallbackBufferSize];
     return String(wildlife::class_name_for_id(class_id, buf, sizeof(buf)));
 }
 

@@ -38,3 +38,33 @@ def test_manifest_image_size_comes_from_config() -> None:
         config=cfg,
     )
     assert m.image_size == cfg.image_size
+
+
+def test_manifest_normalizes_dynamic_class_name_inputs() -> None:
+    m = ExportManifest.from_config(
+        model_path=Path("weights.onnx"),
+        class_names=["bird", "fox"],
+    )
+    assert m.class_names == ("bird", "fox")
+
+
+def test_manifest_to_dict_is_serialization_friendly() -> None:
+    m = ExportManifest.from_config(
+        model_path=Path("weights.onnx"),
+        class_names=("bird", "fox"),
+        config=OnnxExportConfig(image_size=(224, 128), opset=17),
+    )
+    assert m.to_dict() == {
+        "model_path": "weights.onnx",
+        "class_names": ["bird", "fox"],
+        "image_size": [224, 128],
+        "opset": 17,
+    }
+
+
+def test_manifest_rejects_blank_class_names() -> None:
+    with pytest.raises(ValueError, match="class_names must contain non-empty labels"):
+        ExportManifest.from_config(
+            model_path=Path("weights.onnx"),
+            class_names=("bird", "  "),
+        )
