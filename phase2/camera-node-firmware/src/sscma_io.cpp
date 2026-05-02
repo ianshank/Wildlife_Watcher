@@ -4,14 +4,22 @@
 
 #include <Wire.h>
 
+#include "wildlife/config.h"
+
 namespace wildlife {
 
 namespace {
 
-String format_class_name(std::uint8_t class_id) {
-    char class_name[16];
-    std::snprintf(class_name, sizeof(class_name), "class_%u", static_cast<unsigned>(class_id));
-    return String(class_name);
+static const char* const kClassNames[] = { WILDLIFE_CLASS_NAMES };
+static const std::size_t kNumClasses = sizeof(kClassNames) / sizeof(kClassNames[0]);
+
+String lookup_class_name(std::uint8_t class_id) {
+    if (static_cast<std::size_t>(class_id) < kNumClasses) {
+        return String(kClassNames[class_id]);
+    }
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "class_%u", static_cast<unsigned>(class_id));
+    return String(buf);
 }
 
 }  // namespace
@@ -60,7 +68,7 @@ bool SscmaSensor::should_publish(std::uint8_t class_id, std::uint32_t now_ms, st
 }
 
 String SscmaSensor::class_name(std::uint8_t class_id) const {
-    return format_class_name(class_id);
+    return lookup_class_name(class_id);
 }
 
 }  // namespace wildlife

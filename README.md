@@ -135,7 +135,7 @@ python .agents/harness/orchestrator.py ml-pipeline-smoke
 python .agents/harness/orchestrator.py mock-publish-detection --dry-run
 ```
 
-PlatformIO-based commands require the PlatformIO package to be installed in the active Python environment or available on `PATH`. Run `agents-md-coverage` when `AGENTS.md` files move or expand.
+PlatformIO-based commands require the `platformio` package to be installed in the active Python environment used to run these `python` commands. Run `agents-md-coverage` when `AGENTS.md` files move or expand.
 
 ## Agent harness
 

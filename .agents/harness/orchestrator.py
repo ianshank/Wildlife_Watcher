@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import paho.mqtt.publish as mqtt_publish
 import yaml
@@ -62,7 +62,8 @@ def configure_logging(verbose: bool) -> None:
 
 def _load_toml(path: Path) -> dict[str, Any]:
     with path.open("rb") as handle:
-        return cast(dict[str, Any], tomllib.load(handle))
+        data: dict[str, Any] = tomllib.load(handle)
+    return data
 
 
 def load_config() -> HarnessConfig:

@@ -43,6 +43,22 @@ static const uint32_t HEARTBEAT_MS            = 30000;  // 30 s status refresh
 static const uint16_t THUMB_PUBLISH_THRESHOLD = 50;     // confidence (0-100)
 static const size_t   MAX_THUMB_BYTES         = 16384;  // skip if larger
 
+// ---------------------------------------------------------------------------
+// Class name table
+//
+// Maps SSCMA class_id (0-based index) to a human-readable label.
+// Override CLASS_NAMES in secrets.h to match the model deployed to the
+// Grove Vision AI V2.  The fallback for out-of-range IDs is "class_<id>".
+// ---------------------------------------------------------------------------
+
+#ifndef WILDLIFE_CLASS_NAMES
+#define WILDLIFE_CLASS_NAMES \
+    "bird", "cat", "dog", "squirrel", "fox", "deer", "rabbit", "hedgehog"
+#endif
+
+static const char* const kClassNames[] = { WILDLIFE_CLASS_NAMES };
+static const size_t kNumClasses = sizeof(kClassNames) / sizeof(kClassNames[0]);
+
 // Topic templates (filled in setup())
 static char topic_detections[64];
 static char topic_status[64];
@@ -68,9 +84,12 @@ static size_t maxThumbPayloadBytes() {
 }
 
 static String detectionClassName(uint8_t class_id) {
-  char class_name[16];
-  snprintf(class_name, sizeof(class_name), "class_%u", (unsigned)class_id);
-  return String(class_name);
+  if (class_id < kNumClasses) {
+    return String(kClassNames[class_id]);
+  }
+  char buf[16];
+  snprintf(buf, sizeof(buf), "class_%u", (unsigned)class_id);
+  return String(buf);
 }
 
 // ---------------------------------------------------------------------------
