@@ -10,6 +10,7 @@
 #include "wildlife/debounce.h"
 #include "wildlife/fps_meter.h"
 #include "wildlife/power_mgmt.h"
+#include "wildlife/power_policy.h"
 #include "wildlife/topic_names.h"
 
 void setUp() {}
@@ -86,6 +87,46 @@ void test_power_mgr_maybe_sleep_is_noop_in_native() {
     TEST_PASS();
 }
 
+void test_sleep_decision_pir_disabled_stays_awake() {
+    constexpr wildlife::PowerInputs kInputs{
+        /*pir_wake_enabled=*/false,
+        /*saw_activity=*/false,
+        /*pir_pin_high=*/false,
+    };
+    static_assert(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kStayAwake,
+                  "PIR-disabled must always stay awake");
+    TEST_ASSERT_TRUE(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kStayAwake);
+}
+
+void test_sleep_decision_activity_stays_awake() {
+    constexpr wildlife::PowerInputs kInputs{
+        /*pir_wake_enabled=*/true,
+        /*saw_activity=*/true,
+        /*pir_pin_high=*/false,
+    };
+    TEST_ASSERT_TRUE(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kStayAwake);
+}
+
+void test_sleep_decision_pir_pin_high_stays_awake() {
+    constexpr wildlife::PowerInputs kInputs{
+        /*pir_wake_enabled=*/true,
+        /*saw_activity=*/false,
+        /*pir_pin_high=*/true,
+    };
+    TEST_ASSERT_TRUE(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kStayAwake);
+}
+
+void test_sleep_decision_idle_with_pir_low_enters_deep_sleep() {
+    constexpr wildlife::PowerInputs kInputs{
+        /*pir_wake_enabled=*/true,
+        /*saw_activity=*/false,
+        /*pir_pin_high=*/false,
+    };
+    static_assert(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kEnterDeepSleep,
+                  "Idle with PIR low must enter deep sleep");
+    TEST_ASSERT_TRUE(wildlife::evaluate_sleep_decision(kInputs) == wildlife::SleepDecision::kEnterDeepSleep);
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -99,5 +140,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_class_name_returns_fallback_for_out_of_range_id);
     RUN_TEST(test_power_mgr_pir_disabled_when_mode_zero);
     RUN_TEST(test_power_mgr_maybe_sleep_is_noop_in_native);
+    RUN_TEST(test_sleep_decision_pir_disabled_stays_awake);
+    RUN_TEST(test_sleep_decision_activity_stays_awake);
+    RUN_TEST(test_sleep_decision_pir_pin_high_stays_awake);
+    RUN_TEST(test_sleep_decision_idle_with_pir_low_enters_deep_sleep);
     return UNITY_END();
 }

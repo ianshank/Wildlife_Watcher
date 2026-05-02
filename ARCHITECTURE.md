@@ -63,10 +63,11 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `net_mqtt.*` | Topic formatting and publish lifecycle. |
 | `sscma_io.*` | Grove Vision AI V2 polling and detection shaping. |
 | `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. |
+| `power_policy.h` | Pure sleep-decision policy used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
 | `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
-Native test coverage includes 8 Unity tests covering class_names lookup, PowerManager stubs, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
+Native test coverage includes 12 Unity tests covering class_names lookup, PowerManager stubs, the pure sleep-decision policy, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
 
 The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
 

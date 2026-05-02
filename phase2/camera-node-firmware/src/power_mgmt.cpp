@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "wildlife/config.h"
+#include "wildlife/power_policy.h"
 
 #if defined(ARDUINO_ARCH_ESP32)
 #include <esp_sleep.h>
@@ -18,10 +19,12 @@ void PowerManager::begin() {
 
 void PowerManager::maybe_sleep(bool saw_activity) {
 #if defined(ARDUINO_ARCH_ESP32)
-    if (!kPirWakeEnabled || saw_activity) {
-        return;
-    }
-    if (digitalRead(kPirPin) == HIGH) {
+    const PowerInputs inputs{
+        kPirWakeEnabled,
+        saw_activity,
+        digitalRead(kPirPin) == HIGH,
+    };
+    if (evaluate_sleep_decision(inputs) == SleepDecision::kStayAwake) {
         return;
     }
 

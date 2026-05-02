@@ -9,6 +9,8 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Extended harness typecheck scope to include `pi-display-node/tests` (9 source files total: 5 kiosk sources + 4 test files).
 - Created `phase2/camera-node-firmware/include/wildlife/class_names.h` abstraction layer for inline class-label lookup without Arduino dependency.
 - Added 4 Unity firmware tests for class_names and PowerManager stubs (8 total native tests).
+- Added `phase2/camera-node-firmware/include/wildlife/power_policy.h` so the Phase 2 sleep decision can be exercised in native tests without Arduino dependencies.
+- Added 4 Unity firmware tests covering the PowerManager sleep-decision branches (12 total native tests).
 - Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
 - Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
 - Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.
