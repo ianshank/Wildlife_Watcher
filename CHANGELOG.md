@@ -45,6 +45,7 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Added ML pipeline validation to GitHub Actions and updated repo docs to reflect the live Git-backed state and `main` branch base.
 - Added a dedicated `ml-pipeline-lint` harness task so Ruff coverage for typed `numpy` code matches the documented CI and review surface.
 - Normalized repository line-ending policy through `.gitattributes` and expanded `.gitignore` to keep local editor metadata out of the PR surface.
+- Added auto-generated `phase2/camera-node-firmware/.gitignore` (from `pio project init --ide vscode`) so PlatformIO build output and per-project IDE metadata stay out of the PR surface.
 
 ### Fixed
 

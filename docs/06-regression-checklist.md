@@ -63,8 +63,8 @@ python .agents/harness/orchestrator.py firmware-build-phase2
 Expected result:
 
 - the shipped Phase 1 firmware baseline still builds against the current SSCMA and MQTT library surface
-- native tests pass for reusable helpers and publish-shaping logic (8 Unity tests covering class_names, PowerManager stubs, and core publish logic)
-- the hardware build still resolves the modular networking and power-management layers
+- native tests pass for reusable helpers and publish-shaping logic (26 Unity tests covering class_names, MQTT thumb-budget/topic-format helpers — including null-arg, truncation, and zero-budget edge cases — runtime config-constant exposure, PowerManager stubs, the pure sleep-decision policy, SSCMA detection-decode helpers, and core publish logic)
+- the hardware build still resolves the modular networking and power-management layers (both `seeed_xiao_esp32s3` and `seeed_xiao_esp32s3_pir` envs)
 
 If PlatformIO is not installed, record that gap explicitly in the PR summary instead of silently skipping it.
 
