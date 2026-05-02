@@ -9,6 +9,7 @@
 #include "wildlife/config.h"
 #include "wildlife/debounce.h"
 #include "wildlife/fps_meter.h"
+#include "wildlife/net_mqtt_format.h"
 #include "wildlife/power_mgmt.h"
 #include "wildlife/power_policy.h"
 #include "wildlife/topic_names.h"
@@ -26,6 +27,37 @@ void test_topic_names_are_formatted() {
     TEST_ASSERT_EQUAL_STRING(expected_detections.c_str(), topics.detections.data());
     TEST_ASSERT_EQUAL_STRING(expected_status.c_str(), topics.status.data());
     TEST_ASSERT_EQUAL_STRING(expected_thumbs.c_str(), topics.thumbs_prefix.data());
+}
+
+void test_thumb_payload_budget_matches_base64_limit() {
+    constexpr std::size_t kExpectedLimit = ((wildlife::kMaxThumbBytes + 2U) / 3U) * 4U;
+    static_assert(wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes) == kExpectedLimit,
+                  "Configured thumb budget should map to the expected base64 payload limit");
+    TEST_ASSERT_EQUAL_UINT32(static_cast<unsigned int>(kExpectedLimit),
+                             static_cast<unsigned int>(wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes)));
+}
+
+void test_thumb_payload_at_budget_is_accepted() {
+    constexpr std::size_t kLimit = wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes);
+    TEST_ASSERT_TRUE(wildlife::thumb_payload_fits(kLimit, wildlife::kMaxThumbBytes));
+}
+
+void test_thumb_payload_above_budget_is_rejected() {
+    constexpr std::size_t kLimit = wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes);
+    TEST_ASSERT_FALSE(wildlife::thumb_payload_fits(kLimit + 1U, wildlife::kMaxThumbBytes));
+}
+
+void test_thumb_topic_is_formatted_with_frame_id() {
+    constexpr const char kFrameId[] = "f_000123";
+    char topic[96]{};
+    const auto written = wildlife::format_thumb_topic(
+        topic,
+        sizeof(topic),
+        wildlife::kThumbsTopicRoot,
+        kFrameId);
+    const auto expected = std::string(wildlife::kThumbsTopicRoot) + "/" + kFrameId;
+    TEST_ASSERT_EQUAL_UINT32(static_cast<unsigned int>(expected.size()), static_cast<unsigned int>(written));
+    TEST_ASSERT_EQUAL_STRING(expected.c_str(), topic);
 }
 
 void test_debouncer_blocks_rapid_repeats() {
@@ -133,6 +165,10 @@ int main(int argc, char** argv) {
 
     UNITY_BEGIN();
     RUN_TEST(test_topic_names_are_formatted);
+    RUN_TEST(test_thumb_payload_budget_matches_base64_limit);
+    RUN_TEST(test_thumb_payload_at_budget_is_accepted);
+    RUN_TEST(test_thumb_payload_above_budget_is_rejected);
+    RUN_TEST(test_thumb_topic_is_formatted_with_frame_id);
     RUN_TEST(test_debouncer_blocks_rapid_repeats);
     RUN_TEST(test_fps_meter_reports_nonzero_after_window);
     RUN_TEST(test_thumb_budget_constants_are_exposed);

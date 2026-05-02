@@ -11,6 +11,8 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 - Added 4 Unity firmware tests for class_names and PowerManager stubs (8 total native tests).
 - Added `phase2/camera-node-firmware/include/wildlife/power_policy.h` so the Phase 2 sleep decision can be exercised in native tests without Arduino dependencies.
 - Added 4 Unity firmware tests covering the PowerManager sleep-decision branches (12 total native tests).
+- Added `phase2/camera-node-firmware/include/wildlife/net_mqtt_format.h` so the Phase 2 MQTT thumb budget and frame-topic formatting logic can be exercised in native tests without a `PubSubClient` stub.
+- Added 4 Unity firmware tests covering MQTT thumb-budget and topic-format helpers (16 total native tests).
 - Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
 - Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
 - Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.
@@ -25,6 +27,7 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 ### Changed
 
 - Eliminated hard-coded values from firmware tests: topic roots, debounce timing, buffer sizes now derive from config constants.
+- Refactored `phase2/camera-node-firmware/src/net_mqtt.cpp` to use pure helpers for base64 thumb-budget checks and frame-topic formatting before publishing.
 - Strengthened ExportManifest API to accept dynamic `Sequence[str]` inputs, normalize to tuple, reject empty/blank class names.
 - Fixed 9 mypy var-annotated errors in test files with explicit type annotations (`queue.Queue[object]`, `dict[int, Any]`).
 - Updated `phase2/camera-node-firmware/src/sscma_io.cpp` to use `kClassNameFallbackBufferSize` constant.

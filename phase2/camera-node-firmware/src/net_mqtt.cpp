@@ -1,17 +1,9 @@
 #include "wildlife/net_mqtt.h"
 
 #include <ArduinoJson.h>
-#include <base64.hpp>
+#include "wildlife/net_mqtt_format.h"
 
 namespace wildlife {
-
-namespace {
-
-std::size_t max_thumb_payload_bytes() {
-    return encode_base64_length(kMaxThumbBytes);
-}
-
-}  // namespace
 
 void MqttPublisher::begin() {
     client_.setBufferSize(24 * 1024);
@@ -85,8 +77,8 @@ bool MqttPublisher::publish_thumb(const char* frame_id, const char* encoded_jpeg
         return false;
     }
 
-    const std::size_t max_payload = max_thumb_payload_bytes();
-    if (encoded_len > max_payload) {
+    const std::size_t max_payload = max_thumb_payload_bytes(kMaxThumbBytes);
+    if (!thumb_payload_fits(encoded_len, kMaxThumbBytes)) {
         Serial.printf(
             "[wildlife][W] thumb too large for MQTT (%u b64 bytes > %u)\n",
             static_cast<unsigned>(encoded_len),
@@ -95,7 +87,19 @@ bool MqttPublisher::publish_thumb(const char* frame_id, const char* encoded_jpeg
     }
 
     char topic[96];
-    std::snprintf(topic, sizeof(topic), "%s/%s", topics_.thumbs_prefix.data(), frame_id);
+    const std::size_t topic_length = format_thumb_topic(
+        topic,
+        sizeof(topic),
+        topics_.thumbs_prefix.data(),
+        frame_id);
+    if (topic_length == 0 || topic_length >= sizeof(topic)) {
+        Serial.printf(
+            "[wildlife][W] thumb topic too long for MQTT (%u >= %u)\n",
+            static_cast<unsigned>(topic_length),
+            static_cast<unsigned>(sizeof(topic)));
+        return false;
+    }
+
     return client_.publish(
         topic,
         reinterpret_cast<const std::uint8_t*>(encoded_jpeg),
