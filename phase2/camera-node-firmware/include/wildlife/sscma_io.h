@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -12,16 +14,15 @@ namespace wildlife {
 
 struct DetectionFrame {
     std::vector<boxes_t> boxes;
-    const std::uint8_t* jpeg_ptr = nullptr;
-    std::size_t jpeg_len = 0;
 };
 
 class SscmaSensor {
   public:
     bool begin();
     bool poll(DetectionFrame* frame);
+    bool capture_thumb(String* jpeg_base64);
     bool should_publish(std::uint8_t class_id, std::uint32_t now_ms, std::uint32_t debounce_ms);
-    const char* class_name(std::uint8_t class_id) const;
+    String class_name(std::uint8_t class_id) const;
 
   private:
     SSCMA ai_;

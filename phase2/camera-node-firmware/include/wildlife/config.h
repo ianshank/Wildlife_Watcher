@@ -51,6 +51,13 @@
 #define WILDLIFE_THUMBS_TOPIC_ROOT "wildlife/thumbs"
 #endif
 
+// Class name table — override in secrets.h to match the deployed model.
+// The fallback for out-of-range IDs is "class_<id>".
+#ifndef WILDLIFE_CLASS_NAMES
+#define WILDLIFE_CLASS_NAMES \
+    "bird", "cat", "dog", "squirrel", "fox", "deer", "rabbit", "hedgehog"
+#endif
+
 namespace wildlife {
 
 struct Credentials {

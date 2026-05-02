@@ -13,7 +13,11 @@ class TfliteExportConfig:
     quantization: str = "int8"
 
 
-def build_tflite_command(onnx_model: Path, output_dir: Path, config: TfliteExportConfig | None = None) -> list[str]:
+def build_tflite_command(
+    onnx_model: Path,
+    output_dir: Path,
+    config: TfliteExportConfig | None = None,
+) -> list[str]:
     resolved = config or TfliteExportConfig()
     image_height, image_width = resolved.image_size
     return [
@@ -43,4 +47,9 @@ def run_tflite_export(onnx_model: Path, output_dir: Path, *, dry_run: bool = Fal
     return completed.returncode
 
 
-__all__ = ["OnnxExportConfig", "TfliteExportConfig", "build_tflite_command", "run_tflite_export"]
+__all__ = [
+    "OnnxExportConfig",
+    "TfliteExportConfig",
+    "build_tflite_command",
+    "run_tflite_export",
+]

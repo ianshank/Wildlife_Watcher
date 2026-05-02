@@ -65,7 +65,7 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
-The Phase 2 tree is treated as worktree-equivalent isolation even though this workspace is not currently backed by Git.
+The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
 
 ## Data and Configuration Boundaries
 
@@ -80,7 +80,7 @@ This keeps the runtime configurable while preserving stable command names and me
 
 ## Phase Isolation Strategy
 
-This workspace uses directory isolation instead of Git worktrees.
+This workspace currently keeps phase isolation in-repo even though Git worktrees are now available.
 
 - `wildlife-watcher-phase1/` is the shipped Phase 1 baseline.
 - `wildlife-watcher-phase1/phase2/` holds firmware refactors and power-management work.
@@ -90,6 +90,6 @@ That separation allows Phase 2 and Phase 3 work to evolve without destabilizing 
 
 ## Operational Constraints
 
-- The workspace is not a Git repository yet, so branch, push, and PR operations must wait until repo metadata and a remote are configured.
+- GitHub repository settings should be aligned so the default branch is `main`; stale `civ` metadata will confuse compare flows, protection rules, and review defaults.
 - PlatformIO validation depends on a local `platformio` installation, which is not currently available in this environment.
 - Phase 3 remains an offline training and export path only; deployment still targets the Grove Vision AI V2 Ethos-U55 path and does not introduce a Jetson runtime tier.

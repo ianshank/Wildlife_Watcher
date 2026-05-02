@@ -75,7 +75,10 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
     const std::size_t payload_len = serializeJson(doc, payload, sizeof(payload));
     mqtt_publisher.publish_detection(payload, payload_len);
     if (max_confidence >= wildlife::kThumbPublishThreshold) {
-        mqtt_publisher.publish_thumb(frame_id, frame.jpeg_ptr, frame.jpeg_len);
+        String encoded_thumb;
+        if (sensor.capture_thumb(&encoded_thumb)) {
+            mqtt_publisher.publish_thumb(frame_id, encoded_thumb.c_str(), encoded_thumb.length());
+        }
     }
 }
 

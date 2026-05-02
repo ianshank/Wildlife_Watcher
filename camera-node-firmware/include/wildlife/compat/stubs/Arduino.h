@@ -14,6 +14,10 @@ class String {
         return value_.c_str();
     }
 
+    std::size_t length() const {
+        return value_.size();
+    }
+
   private:
     std::string value_;
 };

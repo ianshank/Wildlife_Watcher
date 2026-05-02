@@ -40,7 +40,11 @@ def prepare_image_batch(image: UInt8Image, config: OnnxExportConfig | None = Non
     return np.ascontiguousarray(batch, dtype=np.float32)
 
 
-def build_export_command(weights_path: Path, output_dir: Path, config: OnnxExportConfig | None = None) -> list[str]:
+def build_export_command(
+    weights_path: Path,
+    output_dir: Path,
+    config: OnnxExportConfig | None = None,
+) -> list[str]:
     resolved = config or OnnxExportConfig()
     image_height, image_width = resolved.image_size
     return [

@@ -20,7 +20,7 @@ class MqttPublisher {
     void loop();
     bool publish_status(const char* state, const char* ip, std::uint32_t uptime_ms, bool retained = true);
     bool publish_detection(const char* payload, std::size_t payload_len);
-    bool publish_thumb(const char* frame_id, const std::uint8_t* jpeg, std::size_t jpeg_len);
+    bool publish_thumb(const char* frame_id, const char* encoded_jpeg, std::size_t encoded_len);
 
     const TopicNames& topics() const { return topics_; }
 

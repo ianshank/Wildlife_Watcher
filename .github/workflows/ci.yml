@@ -15,7 +15,6 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
       WILDLIFE_CONFIG: pi-display-node/kiosk/test_config.yaml
-      PYTHONPATH: pi-display-node/kiosk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,14 +34,36 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Ruff
-        run: python -m ruff check pi-display-node/kiosk pi-display-node/tests .agents/harness/orchestrator.py
+      - name: Harness quality gate
+        run: python .agents/harness/orchestrator.py quality --verbose
 
-      - name: Mypy
-        run: python -m mypy pi-display-node/kiosk/wildlife_kiosk.py .agents/harness/orchestrator.py
+  ml-pipeline-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Pytest
-        run: python -m pytest --cov=pi-display-node/kiosk --cov-report=term-missing --cov-fail-under=70
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: ML pipeline lint
+        run: python .agents/harness/orchestrator.py ml-pipeline-lint --verbose
+
+      - name: ML pipeline typecheck
+        run: python .agents/harness/orchestrator.py ml-pipeline-typecheck --verbose
+
+      - name: ML pipeline tests
+        run: python .agents/harness/orchestrator.py ml-pipeline-test --verbose
+
+      - name: ML pipeline smoke
+        run: python .agents/harness/orchestrator.py ml-pipeline-smoke --verbose
 
   firmware-build:
     runs-on: ubuntu-latest
@@ -55,8 +76,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install PlatformIO
-        run: python -m pip install --upgrade pip platformio
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt platformio
 
-      - name: Build firmware
-        run: platformio run -d camera-node-firmware
+      - name: Build firmware baseline
+        run: python .agents/harness/orchestrator.py firmware-build --verbose
+
+      - name: Build firmware phase2
+        run: python .agents/harness/orchestrator.py firmware-build-phase2 --verbose
+
+      - name: Test firmware phase2 native
+        run: python .agents/harness/orchestrator.py firmware-test-native --verbose

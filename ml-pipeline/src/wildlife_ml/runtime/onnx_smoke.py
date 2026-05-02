@@ -9,7 +9,10 @@ from wildlife_ml.export.onnx import prepare_image_batch
 from wildlife_ml.types import Float32Tensor, UInt8Image
 
 
-def dry_run_smoke_summary(model_path: Path, image_size: tuple[int, int] = (320, 320)) -> dict[str, object]:
+def dry_run_smoke_summary(
+    model_path: Path,
+    image_size: tuple[int, int] = (320, 320),
+) -> dict[str, object]:
     height, width = image_size
     synthetic: UInt8Image = np.zeros((height, width, 3), dtype=np.uint8)
     batch: Float32Tensor = prepare_image_batch(synthetic)

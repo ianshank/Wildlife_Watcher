@@ -21,8 +21,8 @@
 // Notes on the SSCMA library:
 //   The Seeed_Arduino_SSCMA library wraps the protocol the Grove Vision AI V2
 //   exposes over I2C. After AI.invoke(), AI.boxes() returns the bounding boxes
-//   from the most recent inference, and AI.last_image() returns a JPEG buffer
-//   of the cropped region (used for thumbnails).
+//   from the most recent inference. Thumbnails are fetched via save_jpeg() and
+//   exposed as a base64-encoded String via last_image().
 
 #include "wildlife/compat/firmware_deps.h"
 
@@ -43,6 +43,22 @@ static const uint32_t HEARTBEAT_MS            = 30000;  // 30 s status refresh
 static const uint16_t THUMB_PUBLISH_THRESHOLD = 50;     // confidence (0-100)
 static const size_t   MAX_THUMB_BYTES         = 16384;  // skip if larger
 
+// ---------------------------------------------------------------------------
+// Class name table
+//
+// Maps SSCMA class_id (0-based index) to a human-readable label.
+// Override CLASS_NAMES in secrets.h to match the model deployed to the
+// Grove Vision AI V2.  The fallback for out-of-range IDs is "class_<id>".
+// ---------------------------------------------------------------------------
+
+#ifndef WILDLIFE_CLASS_NAMES
+#define WILDLIFE_CLASS_NAMES \
+    "bird", "cat", "dog", "squirrel", "fox", "deer", "rabbit", "hedgehog"
+#endif
+
+static const char* const kClassNames[] = { WILDLIFE_CLASS_NAMES };
+static const size_t kNumClasses = sizeof(kClassNames) / sizeof(kClassNames[0]);
+
 // Topic templates (filled in setup())
 static char topic_detections[64];
 static char topic_status[64];
@@ -62,6 +78,19 @@ static uint32_t last_heartbeat_ms = 0;
 static uint32_t fps_accum_count   = 0;
 static uint32_t fps_window_start  = 0;
 static float    fps_smoothed      = 0.0f;
+
+static size_t maxThumbPayloadBytes() {
+  return encode_base64_length(MAX_THUMB_BYTES);
+}
+
+static String detectionClassName(uint8_t class_id) {
+  if (class_id < kNumClasses) {
+    return String(kClassNames[class_id]);
+  }
+  char buf[16];
+  snprintf(buf, sizeof(buf), "class_%u", (unsigned)class_id);
+  return String(buf);
+}
 
 // ---------------------------------------------------------------------------
 // WiFi
@@ -144,33 +173,39 @@ static void mqttConnect() {
 // ---------------------------------------------------------------------------
 
 static void publishThumbIfAvailable(const char* frame_id) {
-  // SSCMA library exposes the most recent JPEG via last_image(). Length 0
-  // means no image (some models don't emit one). On the Sense variant this
-  // ends up around 5-15 KB at default settings.
-  size_t   jpegLen = AI.last_image_size();
-  uint8_t* jpegPtr = AI.last_image();
-  if (!jpegPtr || jpegLen == 0 || jpegLen > MAX_THUMB_BYTES) {
+  if (AI.save_jpeg() != CMD_OK) {
+    Serial.println("[wildlife] save_jpeg failed, skipping thumbnail publish");
     return;
   }
 
-  // Encode to base64 to keep the MQTT payload ASCII-safe (Mosquitto handles
-  // binary fine, but base64 is much easier to inspect with mosquitto_sub).
-  size_t b64Len = encode_base64_length(jpegLen);
-  // Stack allocate up to ~22 KB; PSRAM-backed heap also works but adds latency.
-  static uint8_t b64Buf[22 * 1024];
-  if (b64Len + 1 > sizeof(b64Buf)) {
-    Serial.printf("[wildlife] thumb too big for buffer (%u bytes)\n",
-                  (unsigned)b64Len);
+  // The current SSCMA library already returns base64 text for the saved JPEG,
+  // so publish it directly after enforcing the raw-size-compatible payload cap.
+  String encodedThumb = AI.last_image();
+  size_t encodedLen = encodedThumb.length();
+  if (encodedLen == 0) {
+    Serial.println("[wildlife] no thumbnail returned by SSCMA");
     return;
   }
-  size_t actual = encode_base64(jpegPtr, jpegLen, b64Buf);
-  b64Buf[actual] = 0;
+
+  size_t maxPayloadLen = maxThumbPayloadBytes();
+  if (encodedLen > maxPayloadLen) {
+    Serial.printf("[wildlife] thumb too big for MQTT (%u b64 bytes > %u)\n",
+                  (unsigned)encodedLen,
+                  (unsigned)maxPayloadLen);
+    return;
+  }
 
   char topic[96];
   snprintf(topic, sizeof(topic), "%s/%s", topic_thumbs_prefix, frame_id);
-  mqtt.publish(topic, b64Buf, actual, /*retained=*/true);
-  Serial.printf("[wildlife] published %s (%u JPEG bytes, %u b64)\n",
-                topic, (unsigned)jpegLen, (unsigned)actual);
+  bool ok = mqtt.publish(
+      topic,
+      (const uint8_t*)encodedThumb.c_str(),
+      encodedLen,
+      /*retained=*/true);
+  Serial.printf("[wildlife] published %s (%u b64 bytes, ok=%d)\n",
+                topic,
+                (unsigned)encodedLen,
+                (int)ok);
 }
 
 static void publishDetections(const std::vector<boxes_t>& boxes) {
@@ -205,7 +240,7 @@ static void publishDetections(const std::vector<boxes_t>& boxes) {
 
     JsonObject d = dets.createNestedObject();
     d["class_id"]   = b.target;
-    d["class_name"] = AI.classes()[b.target];   // SSCMA exposes class names
+    d["class_name"] = detectionClassName(b.target);
     d["confidence"] = b.score / 100.0f;
     JsonArray bbox = d.createNestedArray("bbox");
     bbox.add(b.x);

@@ -3,7 +3,6 @@ from __future__ import annotations
 import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
-
 from wildlife_ml.data.augment import center_crop, random_horizontal_flip
 
 

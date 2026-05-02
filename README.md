@@ -89,7 +89,7 @@ wildlife-watcher-phase1/
 - `phase2/` is the Phase 2 worktree-equivalent area for PIR and deep-sleep firmware work.
 - `ml-pipeline/` is the Phase 3 worktree-equivalent area for model prep, export, and validation.
 
-This workspace is not backed by a Git repository right now, so the phase-isolated slices live as sibling directories inside the repo instead of `git worktree` checkouts.
+This repo is now Git-backed on GitHub. The current phase-isolated slices still live as sibling directories inside the repo, and can stay there or move into dedicated `git worktree` checkouts later without changing the documented command surface.
 
 ## Reviewer handoff
 
@@ -100,7 +100,7 @@ Use these files as the fast path through the current repo state:
 - `docs/06-regression-checklist.md` for the pre-PR validation runbook.
 - `AGENTS.md` for repo-level constraints and the stable command surface.
 
-This workspace is PR-ready at the file level, but actual push and PR creation still require Git initialization and a remote.
+Use `main` as the base branch for new work until the stale `civ` default-branch metadata is corrected in GitHub repository settings.
 
 ## Bring-up order
 
@@ -128,24 +128,25 @@ python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-build-phase2
 python .agents/harness/orchestrator.py firmware-test-native
+python .agents/harness/orchestrator.py ml-pipeline-lint
 python .agents/harness/orchestrator.py ml-pipeline-typecheck
 python .agents/harness/orchestrator.py ml-pipeline-test
 python .agents/harness/orchestrator.py ml-pipeline-smoke
 python .agents/harness/orchestrator.py mock-publish-detection --dry-run
 ```
 
-PlatformIO-based commands require a local `platformio` installation. Run `agents-md-coverage` when `AGENTS.md` files move or expand.
+PlatformIO-based commands require the `platformio` package to be installed in the active Python environment used to run these `python` commands. Run `agents-md-coverage` when `AGENTS.md` files move or expand.
 
 ## Agent harness
 
 The repo-local harness keeps common workflows centralized:
 
-- `.agents/harness/orchestrator.py` dispatches lint, typecheck, test, firmware build, AGENTS coverage, and MQTT smoke publishing.
+- `.agents/harness/orchestrator.py` dispatches lint, typecheck, test, firmware build, ML pipeline validation, AGENTS coverage, and MQTT smoke publishing.
 - `.agents/harness.toml` holds the reusable command and path configuration.
 - `.agents/skills/run-quality-gates/` bundles the standard validation flow.
 - `.agents/skills/mock-camera-node/` documents repeatable synthetic MQTT traffic.
 - `.agents/skills/firmware-build-and-size/` scopes firmware build and size-check workflows.
-- `.agents/skills/phase-worktree-bootstrap/` documents the phase-isolation layout used in this non-git workspace.
+- `.agents/skills/phase-worktree-bootstrap/` documents the phase-isolation layout used in this Git-backed workspace.
 - `.github/agents/quality-gate.agent.md` scopes quality validation work.
 - `.github/agents/kiosk-integration.agent.md` scopes Pi kiosk and MQTT bridge work.
 - `.github/agents/firmware-build.agent.md` scopes PlatformIO build work.
@@ -201,4 +202,4 @@ Use `AGENTS.md` files in each directory for local constraints before changing co
 
 - Phase 2: validate `phase2/camera-node-firmware/` native tests and hardware builds once PlatformIO is available, then continue PIR wake and power-budget work behind the modular interfaces.
 - Phase 3: keep training and export off-device in `ml-pipeline/`, strengthen the typed export path, and feed validated payload fixtures back into kiosk regressions.
-- Repo operations: initialize Git, attach the remote, rerun the same harness commands, and package this slice as the first reviewable PR.
+- Repo operations: keep the GitHub default branch aligned to `main`, rerun the same harness commands on each PR branch, and package follow-on slices behind the same shared CI and harness contract.
