@@ -8,6 +8,7 @@
 #include "wildlife/net_mqtt.h"
 #include "wildlife/net_wifi.h"
 #include "wildlife/power_mgmt.h"
+#include "wildlife/sscma_decode.h"
 #include "wildlife/sscma_io.h"
 #include "wildlife/topic_names.h"
 
@@ -27,17 +28,17 @@ std::uint32_t last_heartbeat_ms = 0;
 std::uint32_t frame_counter = 0;
 
 void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, float fps) {
-    StaticJsonDocument<2048> doc;
+    StaticJsonDocument<wildlife::kDetectionPayloadBytes> doc;
     char timestamp[32];
     std::snprintf(timestamp, sizeof(timestamp), "%lu", static_cast<unsigned long>(now_ms));
     doc["ts"] = timestamp;
     doc["node_id"] = wildlife::kCredentials.node_id;
 
     const std::uint32_t current_frame = ++frame_counter;
-    char frame_id[24];
+    char frame_id[wildlife::kFrameIdBufferBytes];
     std::snprintf(frame_id, sizeof(frame_id), "f_%06lu", static_cast<unsigned long>(current_frame));
     doc["frame_id"] = frame_id;
-    doc["model"] = "grove_vision_ai_v2";
+    doc["model"] = wildlife::kModelId;
     doc["fps"] = fps;
 
     JsonArray detections = doc.createNestedArray("detections");
@@ -45,7 +46,7 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
     std::uint16_t max_confidence = 0;
 
     for (const auto& box : frame.boxes) {
-        const auto class_id = static_cast<std::uint8_t>(box.target & 0xFF);
+        const auto class_id = wildlife::class_id_from_target(box.target);
         if (!sensor.should_publish(class_id, now_ms, wildlife::kClassDebounceMs)) {
             continue;
         }
@@ -54,16 +55,14 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
         JsonObject detection = detections.createNestedObject();
         detection["class_id"] = box.target;
         detection["class_name"] = sensor.class_name(class_id);
-        detection["confidence"] = box.score / 100.0F;
+        detection["confidence"] = wildlife::score_to_confidence(box.score);
         JsonArray bbox = detection.createNestedArray("bbox");
         bbox.add(box.x);
         bbox.add(box.y);
         bbox.add(box.w);
         bbox.add(box.h);
 
-        if (box.score > max_confidence) {
-            max_confidence = box.score;
-        }
+        max_confidence = wildlife::track_max_score(max_confidence, box.score);
     }
 
     if (!published_any) {
@@ -71,10 +70,10 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
         return;
     }
 
-    char payload[2048];
+    char payload[wildlife::kDetectionPayloadBytes];
     const std::size_t payload_len = serializeJson(doc, payload, sizeof(payload));
     mqtt_publisher.publish_detection(payload, payload_len);
-    if (max_confidence >= wildlife::kThumbPublishThreshold) {
+    if (wildlife::should_capture_thumb(max_confidence, wildlife::kThumbPublishThreshold)) {
         String encoded_thumb;
         if (sensor.capture_thumb(&encoded_thumb)) {
             mqtt_publisher.publish_thumb(frame_id, encoded_thumb.c_str(), encoded_thumb.length());
@@ -85,8 +84,8 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
 }  // namespace
 
 void setup() {
-    Serial.begin(115200);
-    delay(500);
+    Serial.begin(wildlife::kSerialBaud);
+    delay(wildlife::kBootDelayMs);
     Serial.println();
     Serial.printf("[wildlife][I] booting node %s\n", wildlife::kCredentials.node_id);
 
@@ -116,7 +115,7 @@ void loop() {
 
     wildlife::DetectionFrame frame;
     if (!sensor.poll(&frame)) {
-        delay(20);
+        delay(wildlife::kPollIdleDelayMs);
         power_manager.maybe_sleep(false);
         return;
     }

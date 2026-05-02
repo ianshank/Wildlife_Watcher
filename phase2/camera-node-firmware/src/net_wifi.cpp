@@ -1,5 +1,7 @@
 #include "wildlife/net_wifi.h"
 
+#include "wildlife/config.h"
+
 namespace wildlife {
 
 void WifiLink::connect_with_timeout() {
@@ -10,11 +12,11 @@ void WifiLink::connect_with_timeout() {
 
     const std::uint32_t started_at = millis();
     while (WiFi.status() != WL_CONNECTED) {
-        if (millis() - started_at > 30000U) {
+        if (millis() - started_at > kWifiConnectTimeoutMs) {
             Serial.println("[wildlife][E] WiFi timeout, restarting");
             ESP.restart();
         }
-        delay(250);
+        delay(kWifiPollIntervalMs);
         Serial.print('.');
     }
     Serial.printf("\n[wildlife][I] WiFi connected: %s\n", WiFi.localIP().toString().c_str());
