@@ -178,6 +178,8 @@ inline constexpr std::size_t kFrameIdBufferBytes =
     static_cast<std::size_t>(WILDLIFE_FRAME_ID_BUFFER_BYTES);
 inline constexpr std::size_t kMqttBufferBytes =
     static_cast<std::size_t>(WILDLIFE_MQTT_BUFFER_BYTES);
+static_assert(kMqttBufferBytes <= 65535U,
+              "WILDLIFE_MQTT_BUFFER_BYTES must fit in uint16_t (PubSubClient::setBufferSize)");
 inline constexpr std::uint16_t kMqttKeepAliveSeconds =
     static_cast<std::uint16_t>(WILDLIFE_MQTT_KEEPALIVE_S);
 inline constexpr std::uint16_t kMqttSocketTimeoutSeconds =
@@ -192,6 +194,8 @@ inline constexpr std::size_t kMqttTopicBufferBytes =
     static_cast<std::size_t>(WILDLIFE_MQTT_TOPIC_BUFFER_BYTES);
 inline constexpr std::uint8_t kMqttStatusQos =
     static_cast<std::uint8_t>(WILDLIFE_MQTT_STATUS_QOS);
+static_assert(kMqttStatusQos <= 2U,
+              "WILDLIFE_MQTT_STATUS_QOS must be 0, 1, or 2 (MQTT spec)");
 inline constexpr std::uint32_t kWifiConnectTimeoutMs =
     static_cast<std::uint32_t>(WILDLIFE_WIFI_CONNECT_TIMEOUT_MS);
 inline constexpr std::uint32_t kWifiPollIntervalMs =

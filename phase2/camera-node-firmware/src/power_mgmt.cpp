@@ -22,7 +22,7 @@ void PowerManager::maybe_sleep(bool saw_activity) {
     const PowerInputs inputs{
         kPirWakeEnabled,
         saw_activity,
-        digitalRead(kPirPin) == HIGH,
+        kPirWakeEnabled && (digitalRead(kPirPin) == HIGH),
     };
     if (evaluate_sleep_decision(inputs) == SleepDecision::kStayAwake) {
         return;

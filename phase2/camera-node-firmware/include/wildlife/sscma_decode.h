@@ -13,8 +13,10 @@ inline constexpr std::uint8_t class_id_from_target(std::uint16_t target) noexcep
     return static_cast<std::uint8_t>(target & 0xFFU);
 }
 
-/// Maps a raw SSCMA score (0..100) to a normalized confidence in [0.0, 1.0].
-inline constexpr float score_to_confidence(std::uint8_t score) noexcept {
+/// Maps a raw SSCMA score (carried as uint16_t in `boxes_t::score`, documented
+/// range 0..100) to a normalized confidence in [0.0, 1.0]. Accepts the full
+/// `uint16_t` so out-of-spec scores do not silently wrap to a different value.
+inline constexpr float score_to_confidence(std::uint16_t score) noexcept {
     return static_cast<float>(score) / 100.0F;
 }
 
