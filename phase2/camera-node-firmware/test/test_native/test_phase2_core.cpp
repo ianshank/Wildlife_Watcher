@@ -61,6 +61,7 @@ void test_class_name_returns_semantic_label_for_known_id() {
 }
 
 void test_class_name_returns_fallback_for_out_of_range_id() {
+    static_assert(wildlife::kClassNameCount < 256, "Class count exceeds uint8_t range for out-of-range testing");
     const auto out_of_range_id = static_cast<std::uint8_t>(wildlife::kClassNameCount);
     std::array<char, wildlife::kClassNameFallbackBufferSize> buf{};
     std::array<char, wildlife::kClassNameFallbackBufferSize> expected{};
