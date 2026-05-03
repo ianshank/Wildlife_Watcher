@@ -196,6 +196,11 @@ def step2_inject(broker: str, port: int, user: str, pw: str,
         _say("step2", f"published {det_topic} frame_id={frame_id} "
                       f"rc={det_info.rc}")
         if frame.thumb is not None:
+            # Brief gap so the kiosk's MQTT thread is overwhelmingly
+            # likely to enqueue the detection row before the retained
+            # thumb arrives. step3_4 also polls/retries in case of any
+            # residual reordering, so this is belt-and-braces.
+            time.sleep(0.25)
             thumb_topic = f"wildlife/thumbs/{node_id}/{frame_id}"
             b64 = base64.b64encode(frame.thumb)
             t_info = cli.publish(thumb_topic, b64, qos=0, retain=True)
@@ -244,8 +249,18 @@ def _sudo_exec(cli: paramiko.SSHClient, cmd: str, sudo_pw: str,
 
 
 def step3_4_verify_db(host: str, user: str, pw: str,
-                      frame: InjectedFrame, settle_s: int = 3) -> None:
-    _say("step3", f"settling {settle_s}s for kiosk to consume the message ...")
+                      frame: InjectedFrame, settle_s: int = 3,
+                      poll_s: int = 12, poll_interval_s: float = 1.0) -> None:
+    """Confirm the kiosk persisted both the detection row and the thumbnail.
+
+    The kiosk processes detection and thumbnail messages from the same MQTT
+    queue but in receive order, and ``Storage.update_thumb()`` is a no-op
+    when the row does not yet exist. Rather than racing on a single read,
+    poll the DB for up to ``poll_s`` seconds: success requires the
+    detection row to land *and* (when a thumb was injected) the
+    ``thumb_jpeg`` column to reach byte-identity with what we published.
+    """
+    _say("step3", f"settling {settle_s}s before first poll ...")
     time.sleep(settle_s)
     cli = _ssh(host, user, pw)
     try:
@@ -261,16 +276,36 @@ def step3_4_verify_db(host: str, user: str, pw: str,
         cmd = (
             f'sqlite3 -separator "|" /var/lib/wildlife/observations.db "{sql}"'
         )
-        rc, out, err = _sudo_exec(cli, cmd, pw)
-        if rc != 0:
-            raise _fail("step3", f"sqlite3 rc={rc} stderr={err.strip()}")
-        line = out.strip().splitlines()[-1] if out.strip() else ""
-        if not line or "|" not in line:
-            raise _fail("step3", f"no row for frame_id={frame.frame_id} "
-                                  f"(stdout={out!r})")
-        cols = line.split("|")
-        if len(cols) < 13:
-            raise _fail("step3", f"unexpected row shape: {cols}")
+
+        deadline = time.monotonic() + poll_s
+        last_err: str = ""
+        cols: list[str] = []
+        while time.monotonic() < deadline:
+            rc, out, err = _sudo_exec(cli, cmd, pw)
+            if rc != 0:
+                last_err = f"sqlite3 rc={rc} stderr={err.strip()}"
+                time.sleep(poll_interval_s)
+                continue
+            line = out.strip().splitlines()[-1] if out.strip() else ""
+            if not line or "|" not in line:
+                last_err = f"no row yet for frame_id={frame.frame_id}"
+                time.sleep(poll_interval_s)
+                continue
+            cols = line.split("|")
+            if len(cols) < 13:
+                last_err = f"unexpected row shape: {cols}"
+                time.sleep(poll_interval_s)
+                continue
+            db_thumb_hex = cols[12]
+            # If we expected a thumb, wait for it to be populated too.
+            if frame.thumb is not None and not db_thumb_hex:
+                last_err = "row present but thumb_jpeg still NULL"
+                time.sleep(poll_interval_s)
+                continue
+            break
+        else:
+            raise _fail("step3", f"polled {poll_s}s, last error: {last_err}")
+
         (db_ts, db_node, db_frame, db_class, db_cid, db_conf,
          db_x, db_y, db_w, db_h, db_model, db_fps, db_thumb_hex) = cols[:13]
 

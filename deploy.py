@@ -10,6 +10,14 @@ Credentials come from environment variables (no secrets in source):
   BROKER_PASS   - mosquitto broker password the installer will provision
                   (REQUIRED)
 
+  PI_HOST_KEY_POLICY  - one of {strict,auto} (default: strict).
+                        ``strict`` uses paramiko.RejectPolicy and requires
+                        the Pi's host key to already be in the user's
+                        ``~/.ssh/known_hosts``; ``auto`` falls back to
+                        AutoAddPolicy and prints a MITM warning.
+  PI_KNOWN_HOSTS      - path to a known_hosts file to load (default:
+                        ``~/.ssh/known_hosts``).
+
 PowerShell example:
     $env:PI_PASS    = '<pi-password>'
     $env:BROKER_PASS = '<broker-password>'
@@ -39,6 +47,42 @@ def _require(env_name: str) -> str:
     return val
 
 
+def _build_ssh_client() -> paramiko.SSHClient:
+    """Build an ``SSHClient`` with a safe-by-default host-key policy.
+
+    Defaults to ``RejectPolicy`` after loading the user's known_hosts,
+    which mitigates MITM. Set ``PI_HOST_KEY_POLICY=auto`` to opt back
+    into ``AutoAddPolicy`` (e.g. on first contact in a trusted LAN).
+    """
+    client = paramiko.SSHClient()
+    known_hosts = os.environ.get(
+        "PI_KNOWN_HOSTS", str(Path.home() / ".ssh" / "known_hosts")
+    )
+    try:
+        client.load_system_host_keys()
+    except Exception:
+        pass
+    if known_hosts and Path(known_hosts).expanduser().exists():
+        try:
+            client.load_host_keys(str(Path(known_hosts).expanduser()))
+        except Exception as exc:
+            sys.stderr.write(
+                f"warning: failed to load known_hosts {known_hosts}: {exc}\n"
+            )
+
+    policy = os.environ.get("PI_HOST_KEY_POLICY", "strict").strip().lower()
+    if policy == "auto":
+        sys.stderr.write(
+            "warning: PI_HOST_KEY_POLICY=auto \u2014 trusting unknown host keys "
+            "(MITM risk). Switch to 'strict' once the Pi key is in "
+            "known_hosts.\n"
+        )
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    else:
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
+    return client
+
+
 def main() -> int:
     host, user, pi_pass = _load_pi_creds()
     broker_user = os.environ.get("BROKER_USER", "wildlife").strip() or "wildlife"
@@ -48,8 +92,7 @@ def main() -> int:
     remote_dir = f"/home/{user}/pi-display-node"
 
     print(f"Connecting to {user}@{host}...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh = _build_ssh_client()
     try:
         ssh.connect(host, username=user, password=pi_pass, timeout=10,
                     allow_agent=False, look_for_keys=False)

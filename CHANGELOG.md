@@ -4,6 +4,17 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 ## Unreleased
 
+### Fixed (review-pass 2)
+
+- **Race in `verify_e2e_journey.py`**: step 3/4 now polls the Pi's `observations.db` for up to 12 s instead of a single read, waiting for both the detection row and (when injected) the populated `thumb_jpeg` column. Adds a 250 ms inter-publish gap between detection and retained thumbnail to prefer in-order processing on the kiosk side.
+- **MITM exposure in `deploy.py`**: SSH host-key handling now defaults to `paramiko.RejectPolicy()` after loading the user's `known_hosts`. Set `PI_HOST_KEY_POLICY=auto` (logs a warning) to opt back into `AutoAddPolicy`. `PI_KNOWN_HOSTS` overrides the host-key file location.
+- **Camera-node embedded broker shutdown race** (`camera-node-firmware/tests/conftest.py`): replaced abrupt `loop.call_soon_threadsafe(loop.stop)` teardown with a cooperative `stop_requested: threading.Event` plus `await broker.shutdown()`, mirroring the pi-display-node fixture. Eliminates `Event loop stopped before Future completed` errors in session teardown.
+- **Path resolution in camera conftest**: `include/secrets.h` and the `pio run` working directory are now anchored to `Path(__file__).resolve().parent.parent`, so `pytest camera-node-firmware/tests` works regardless of `cwd`.
+- **Unusable placeholder `secrets.h`**: when `FLASH_FIRMWARE=1` and `secrets.h` is missing, the fixture now reads `WIFI_SSID` / `WIFI_PASSWORD` (and optionally `MQTT_BROKER_FIRMWARE`) from the environment and `pytest.fail`s with a clear message if either is missing — no more silently-flashed devices with `YOUR_SSID` / `YOUR_PASSWORD`.
+- **HIL thumbnail tests on stock Grove model**: `test_thumbnail_published` and `test_thumbnail_topic_contains_frame_id` are now `@pytest.mark.skipif`-gated on `THUMBNAILS_ENABLED=1`, since the stock Phase 1 firmware skips JPEG publishing when `AI.last_image()` returns nothing (see `docs/07-next-steps.md` §Camera-side Thumbnail Preview).
+- **Misleading docstring** in `scripts/verify_pi_roundtrip.py`: clarified that the script is read-only Pi diagnostics, with a pointer to `verify_e2e_journey.py` for actual MQTT round-trips.
+- **Late-joiner test compatibility**: `test_hardware_integration.py::test_status_message_is_retained` now uses the shared `_make_client()` helper from `conftest.py`, picking up the paho-mqtt v1/v2 callback-API auto-detection introduced in the previous review pass.
+
 ### Added
 
 - Live end-to-end user-journey validator at `scripts/verify_e2e_journey.py`. Four-stage check against the deployed pipeline: (1) confirms the real XIAO camera is publishing `wildlife/status/<node>` heartbeats, (2) injects a synthetic-camera detection plus retained base64 JPEG thumbnail to the production broker, (3) SSHes to the Pi and verifies the row landed in `/var/lib/wildlife/observations.db` with every column matching the injected payload, (4) byte-compares the stored `thumb_jpeg` BLOB against the bytes published. Exit code 0 only when every stage passes.

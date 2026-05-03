@@ -17,12 +17,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import time
 
 import paho.mqtt.client as mqtt
 import pytest
 
-from conftest import BROKER_HOST, BROKER_PORT, NODE_ID
+from conftest import BROKER_HOST, BROKER_PORT, NODE_ID, _make_client
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -84,7 +85,7 @@ def test_status_topic_is_retained(mqtt_client):
         late_queue.put(msg)
 
     # Create a second "late joiner" client
-    late = mqtt.Client(client_id="pytest-late-joiner", clean_session=True)
+    late = _make_client("pytest-late-joiner")
     late.on_message = on_msg
     late.connect(BROKER_HOST, BROKER_PORT, 60)
     late.subscribe(STATUS_TOPIC)
@@ -336,6 +337,14 @@ def test_class_debounce(mqtt_client):
 
 
 @pytest.mark.detection
+@pytest.mark.skipif(
+    os.environ.get("THUMBNAILS_ENABLED", "0") != "1",
+    reason=(
+        "Phase 1 firmware skips thumbnail publishing on the stock Grove "
+        "Vision AI V2 model (AI.last_image() is empty). Set "
+        "THUMBNAILS_ENABLED=1 once a custom YOLO export is in place."
+    ),
+)
 def test_thumbnail_published(mqtt_client):
     """Camera publishes a valid JPEG thumbnail after a detection.
 
@@ -378,6 +387,13 @@ def test_thumbnail_published(mqtt_client):
 
 
 @pytest.mark.detection
+@pytest.mark.skipif(
+    os.environ.get("THUMBNAILS_ENABLED", "0") != "1",
+    reason=(
+        "Thumbnail publishing is gated on a custom YOLO export; see "
+        "docs/07-next-steps.md §Camera-side Thumbnail Preview."
+    ),
+)
 def test_thumbnail_topic_contains_frame_id(mqtt_client):
     """Thumbnail topic includes a frame_id matching a recent detection."""
     _, msg_queue = mqtt_client

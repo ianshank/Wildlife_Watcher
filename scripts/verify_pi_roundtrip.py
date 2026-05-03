@@ -1,7 +1,13 @@
-"""One-shot remote verification of the Pi end of the wildlife pipeline.
+"""Read-only remote diagnostics for the Pi end of the wildlife pipeline.
 
-Connects via paramiko (same creds as deploy.py) and runs a sequence of
-read-only diagnostic commands. No remote state is mutated.
+Despite the historical name, this script does **not** publish anything: it
+SSHes into the Pi (using credentials from ``scripts/_pi_creds.load()``) and
+runs a sequence of read-only inspection commands — service state, broker
+listener, recent MQTT traffic, and the most recent rows in
+``observations.db``. No remote state is mutated.
+
+For an actual MQTT-publish → kiosk-ingest → SQLite round-trip check, use
+``scripts/verify_e2e_journey.py`` instead.
 
 The deployed Mosquitto broker has ``allow_anonymous false``, so the
 ``mosquitto_sub`` checks below need credentials. Set ``MQTT_USER`` and
