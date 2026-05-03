@@ -5,10 +5,12 @@ This document outlines follow-on work after the Phase 2 Power Management Testabi
 ## Phase 2: Power Management Implementation
 
 ### PIR Wake & Deep Sleep
-- Implement PIR sensor integration using the PowerManager boundary established in this PR
-- Add deep-sleep transitions and wake logic
-- Extend Unity test coverage for PIR wake scenarios
-- Add hardware validation on XIAO ESP32S3 Sense
+- ~~Implement PIR sensor integration using the PowerManager boundary established in this PR~~ ✅ Done: `pir_event.h` + `classify_wake_source()` + `PowerManager::last_wake_source()`
+- ~~Extend Unity test coverage for PIR wake scenarios~~ ✅ Done: 39 native tests (up from 29)
+- ~~Expose PIR tunables via overridable `WILDLIFE_*` macros~~ ✅ Done: `kPirDebounceMs`, `kWakeBootGraceMs`
+- Add hardware validation on XIAO ESP32S3 Sense (next: on-device PIR cycling)
+- Wire `should_accept_pir_edge()` into `main.cpp` ISR handler
+- Wire `kWakeBootGraceMs` into `PowerManager::maybe_sleep()` post-PIR grace period
 
 ### Network Module Testing
 - Extend Unity test coverage for `net_mqtt.*` (topic formatting, publish lifecycle)
