@@ -8,6 +8,8 @@
 .coverage
 .coverage.*
 *.egg-info/
+dist/
+build/
 
 # PlatformIO build output
 **/.pio/
@@ -16,14 +18,25 @@
 .vscode/
 .vs/
 *.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
 # Local logs and developer scratch
 *.log
 scripts/__pycache__/
 camera-node-firmware/upload.log
 
-# Local secrets
+# Local secrets and credentials
 **/secrets.h
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
 
 # SQLite and runtime data
 *.db
@@ -46,3 +59,15 @@ ml-pipeline/models/*
 !ml-pipeline/models/.gitkeep
 ml-pipeline/reports/*
 !ml-pipeline/reports/.gitkeep
+
+# ONNX / TFLite / Vela compiled artifacts
+*.onnx
+*.tflite
+*.vela.tflite
+*.h5
+
+# Firmware compiled binaries
+firmware.bin
+firmware.elf
+bootloader.bin
+partitions.bin

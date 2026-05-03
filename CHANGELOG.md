@@ -2,7 +2,33 @@
 
 All notable changes to this workspace-ready repo slice are documented in this file.
 
-## Unreleased
+## [Unreleased] — Phase 2 PIR Wake-Source Classification & Type Safety
+
+### Added
+
+- **`phase2/camera-node-firmware/include/wildlife/pir_event.h`** — `constexpr should_accept_pir_edge()` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; zero Arduino dependencies, fully native-testable.
+- **`phase2/camera-node-firmware/include/wildlife/power_policy.h`** extended with `WakeSource` enum (`kColdBoot`, `kPirWake`, `kTimerWake`, `kUnknown`), `kEspWakeCauseUndefined/Ext0/Timer` constants, and `classify_wake_source()` pure function mapping `esp_sleep_get_wakeup_cause()` numerics to typed enum values.
+- **`phase2/camera-node-firmware/src/power_mgmt.cpp`** — `PowerManager::begin()` now classifies the boot wake source; `last_wake_source()` accessor exposed on the class. Native stub returns `kColdBoot` unconditionally.
+- **39 Unity native tests** (up from 29): 4 for `classify_wake_source`, 4 for `should_accept_pir_edge` (first edge, within window, exact boundary, uint32 wrap-around), 1 for `last_wake_source()` accessor, 1 for new config constants, plus all pre-existing tests.
+- **`config.h` tunables**: `WILDLIFE_PIR_DEBOUNCE_MS` (250 ms, overridable) and `WILDLIFE_WAKE_BOOT_GRACE_MS` (500 ms, overridable) macros promoted to `kPirDebounceMs` / `kWakeBootGraceMs` namespace constants.
+- **Expanded mypy typecheck scope** — harness `typecheck` task and `pyproject.toml` now cover `scripts/` and `deploy.py` in addition to kiosk and tests (24 source files total).
+
+### Fixed
+
+- **20 mypy type errors resolved** across 9 files:
+  - Removed 9 stale `# type: ignore[import-untyped]` / `# type: ignore` comments — `paramiko ≥ 3.0` and `paho-mqtt ≥ 2.0` now ship `py.typed` markers and inline stubs.
+  - `scripts/verify_pi_roundtrip.py` and `scripts/verify_pi_diagnose.py`: `rc` now typed as `int` via `int(stdout.channel.recv_exit_status())` to satisfy `no-any-return`.
+  - `scripts/verify_e2e_journey.py`: `chan.send()` argument changed from `str` to `bytes` (`.encode()`), matching `paramiko.Channel.send` signature.
+  - `scripts/_mqtt_client.py`: replaced explicit-kwarg + `**extra` pattern with a single merged dict to avoid `"Client gets multiple values for keyword"` error under mypy's duplicate-kwarg check.
+  - `pi-display-node/tests/test_ssh_client.py`: added `from typing import cast`; all `build_ssh_client()` return values cast to `_FakeClient`; `connect()` call sites with `_FakeClient` instances annotated with `# type: ignore[arg-type]` at the monkeypatch boundary.
+
+### Changed
+
+- `.gitignore` extended with: `dist/`, `build/`, editor swap files (`.swp`, `.swo`, `*~`, `.DS_Store`, `Thumbs.db`), `.env` / credential files, compiled ML artifacts (`*.onnx`, `*.tflite`, `*.vela.tflite`, `*.h5`), firmware binaries (`firmware.bin`, `firmware.elf`, `bootloader.bin`, `partitions.bin`).
+
+---
+
+## Previous — Phase 2 Power Management Testability & Export Manifest
 
 ### Fixed (review-pass 2)
 
