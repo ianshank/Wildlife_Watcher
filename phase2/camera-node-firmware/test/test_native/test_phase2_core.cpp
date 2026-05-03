@@ -10,6 +10,7 @@
 #include "wildlife/debounce.h"
 #include "wildlife/fps_meter.h"
 #include "wildlife/net_mqtt_format.h"
+#include "wildlife/pir_event.h"
 #include "wildlife/power_mgmt.h"
 #include "wildlife/power_policy.h"
 #include "wildlife/sscma_decode.h"
@@ -297,6 +298,104 @@ void test_runtime_config_constants_are_consistent() {
         static_cast<unsigned int>(wildlife::kMqttBufferBytes));
 }
 
+// ---------------------------------------------------------------------------
+// Wake-source classification tests
+// ---------------------------------------------------------------------------
+
+void test_classify_wake_source_cold_boot() {
+    static_assert(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseUndefined) ==
+            wildlife::WakeSource::kColdBoot,
+        "Undefined/reset cause must classify as kColdBoot");
+    TEST_ASSERT_TRUE(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseUndefined) ==
+        wildlife::WakeSource::kColdBoot);
+}
+
+void test_classify_wake_source_ext0_pir() {
+    static_assert(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseExt0) ==
+            wildlife::WakeSource::kPirExt0,
+        "EXT0 cause must classify as kPirExt0");
+    TEST_ASSERT_TRUE(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseExt0) ==
+        wildlife::WakeSource::kPirExt0);
+}
+
+void test_classify_wake_source_timer() {
+    static_assert(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseTimer) ==
+            wildlife::WakeSource::kTimer,
+        "Timer cause must classify as kTimer");
+    TEST_ASSERT_TRUE(
+        wildlife::classify_wake_source(wildlife::kEspWakeCauseTimer) ==
+        wildlife::WakeSource::kTimer);
+}
+
+void test_classify_wake_source_unknown_fallback() {
+    // Cause 99 is not assigned to any known wakeup type; must fall back to kUnknown.
+    TEST_ASSERT_TRUE(
+        wildlife::classify_wake_source(99U) == wildlife::WakeSource::kUnknown);
+    // Cause 1 (ESP_SLEEP_WAKEUP_ALL) is likewise unrecognised.
+    TEST_ASSERT_TRUE(
+        wildlife::classify_wake_source(1U) == wildlife::WakeSource::kUnknown);
+}
+
+void test_power_mgr_last_wake_source_is_cold_boot_in_native() {
+    // In the native (non-ESP32) environment begin() always sets kColdBoot.
+    wildlife::PowerManager pm;
+    pm.begin();
+    TEST_ASSERT_TRUE(pm.last_wake_source() == wildlife::WakeSource::kColdBoot);
+}
+
+// ---------------------------------------------------------------------------
+// PIR edge debounce tests
+// ---------------------------------------------------------------------------
+
+void test_pir_edge_first_call_accepted() {
+    // Sentinel last_edge == max value means "never fired"; elapsed wraps to
+    // a large number >= any real debounce period.
+    constexpr std::uint32_t kNever = 0xFFFFFFFFU;
+    constexpr std::uint32_t kNow   = 1000000U;  // 1 s after boot
+    constexpr std::uint32_t kDebounceUs = static_cast<std::uint32_t>(WILDLIFE_PIR_DEBOUNCE_MS) * 1000U;
+    TEST_ASSERT_TRUE(wildlife::should_accept_pir_edge(kNever, kNow, kDebounceUs));
+}
+
+void test_pir_edge_within_debounce_rejected() {
+    constexpr std::uint32_t kLastUs = 1000000U;
+    constexpr std::uint32_t kDebounceUs = static_cast<std::uint32_t>(WILDLIFE_PIR_DEBOUNCE_MS) * 1000U;
+    // Edge arrives 1 µs before the debounce window expires.
+    const std::uint32_t kTooSoon = kLastUs + kDebounceUs - 1U;
+    TEST_ASSERT_FALSE(wildlife::should_accept_pir_edge(kLastUs, kTooSoon, kDebounceUs));
+}
+
+void test_pir_edge_at_exact_debounce_boundary_accepted() {
+    constexpr std::uint32_t kLastUs = 1000000U;
+    constexpr std::uint32_t kDebounceUs = static_cast<std::uint32_t>(WILDLIFE_PIR_DEBOUNCE_MS) * 1000U;
+    // elapsed == debounce_us: boundary must be accepted (>=).
+    const std::uint32_t kExact = kLastUs + kDebounceUs;
+    TEST_ASSERT_TRUE(wildlife::should_accept_pir_edge(kLastUs, kExact, kDebounceUs));
+}
+
+void test_pir_edge_wrap_around_safe() {
+    // last_edge_us near uint32_t max; now_us wraps past zero.
+    constexpr std::uint32_t kDebounceUs = 250000U;  // 250 ms
+    constexpr std::uint32_t kLastUs = 0xFFFFFF00U;  // close to wrap
+    // Wrap: 0xFFFFFF00 + 0x00060000 = 0x000600FF (wraps past max)
+    constexpr std::uint32_t kNow = kLastUs + 0x00060000U;  // >> debounce
+    static_assert(kNow < kLastUs, "kNow must have wrapped for this test to be meaningful");
+    TEST_ASSERT_TRUE(wildlife::should_accept_pir_edge(kLastUs, kNow, kDebounceUs));
+}
+
+// ---------------------------------------------------------------------------
+// PIR tunable constants
+// ---------------------------------------------------------------------------
+
+void test_pir_tunable_constants_are_nonzero() {
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kPirDebounceMs));
+    TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kWakeBootGraceMs));
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -331,5 +430,18 @@ int main(int argc, char** argv) {
     RUN_TEST(test_thumb_payload_budget_matches_python_round_trip);
     RUN_TEST(test_thumbs_topic_root_matches_kiosk_contract);
     RUN_TEST(test_runtime_config_constants_are_consistent);
+    // Wake-source classification
+    RUN_TEST(test_classify_wake_source_cold_boot);
+    RUN_TEST(test_classify_wake_source_ext0_pir);
+    RUN_TEST(test_classify_wake_source_timer);
+    RUN_TEST(test_classify_wake_source_unknown_fallback);
+    RUN_TEST(test_power_mgr_last_wake_source_is_cold_boot_in_native);
+    // PIR edge debounce
+    RUN_TEST(test_pir_edge_first_call_accepted);
+    RUN_TEST(test_pir_edge_within_debounce_rejected);
+    RUN_TEST(test_pir_edge_at_exact_debounce_boundary_accepted);
+    RUN_TEST(test_pir_edge_wrap_around_safe);
+    // PIR tunable constants
+    RUN_TEST(test_pir_tunable_constants_are_nonzero);
     return UNITY_END();
 }

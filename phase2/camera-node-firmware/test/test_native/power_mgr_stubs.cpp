@@ -8,7 +8,10 @@
 
 namespace wildlife {
 
-void PowerManager::begin() {}
+void PowerManager::begin() {
+    // No Arduino runtime in the native environment; wake source stays kColdBoot.
+    wake_source_ = WakeSource::kColdBoot;
+}
 
 void PowerManager::maybe_sleep(bool /*saw_activity*/) {
     // ARDUINO_ARCH_ESP32 is never defined in native; deep-sleep is unreachable.
@@ -16,6 +19,10 @@ void PowerManager::maybe_sleep(bool /*saw_activity*/) {
 
 bool PowerManager::pir_wake_enabled() const {
     return kPirWakeEnabled;
+}
+
+WakeSource PowerManager::last_wake_source() const {
+    return wake_source_;
 }
 
 }  // namespace wildlife
