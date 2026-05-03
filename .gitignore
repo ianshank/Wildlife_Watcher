@@ -17,6 +17,11 @@
 .vs/
 *.code-workspace
 
+# Local logs and developer scratch
+*.log
+scripts/__pycache__/
+camera-node-firmware/upload.log
+
 # Local secrets
 **/secrets.h
 

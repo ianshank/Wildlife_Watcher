@@ -19,13 +19,8 @@ def test_mqtt_bridge_detection(test_config):
         "model": "yolo",
         "fps": 15.5,
         "detections": [
-            {
-                "class_id": 1,
-                "class_name": "bird",
-                "confidence": 0.95,
-                "bbox": [10, 20, 30, 40]
-            }
-        ]
+            {"class_id": 1, "class_name": "bird", "confidence": 0.95, "bbox": [10, 20, 30, 40]}
+        ],
     }
     msg = MockMessage("wildlife/detections/node1", json.dumps(payload).encode("utf-8"))
     bridge._on_message(None, None, msg)
@@ -62,6 +57,7 @@ def test_mqtt_bridge_detection_skips_invalid_bbox(test_config):
     with pytest.raises(queue.Empty):
         events.get_nowait()
 
+
 def test_mqtt_bridge_thumb(test_config):
     events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
@@ -89,15 +85,12 @@ def test_mqtt_bridge_thumb_decodes_base64(test_config):
     assert isinstance(ev, ThumbnailEvent)
     assert ev.jpeg_bytes == b"jpeg_bytes"
 
+
 def test_mqtt_bridge_status(test_config):
     events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
 
-    payload = {
-        "state": "online",
-        "ip": "192.168.1.50",
-        "ts": "2026-05-01T12:00:00Z"
-    }
+    payload = {"state": "online", "ip": "192.168.1.50", "ts": "2026-05-01T12:00:00Z"}
     msg = MockMessage("wildlife/status/node1", json.dumps(payload).encode("utf-8"))
     bridge._on_message(None, None, msg)
 
@@ -120,6 +113,7 @@ def test_mqtt_bridge_status_plain_text_fallback(test_config):
     assert ev.node_id == "node1"
     assert ev.state == "offline"
     assert ev.ip is None
+
 
 def test_mqtt_bridge_connect_disconnect(test_config):
     events: queue.Queue[object] = queue.Queue()

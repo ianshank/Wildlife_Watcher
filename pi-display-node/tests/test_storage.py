@@ -15,7 +15,7 @@ def test_insert_detection(mock_db_path):
         confidence=0.9,
         bbox=(10, 10, 100, 100),
         model="yolo",
-        fps=10.0
+        fps=10.0,
     )
     obs_id = storage.insert_detection(ev, b"dummy_jpeg")
     assert obs_id > 0
@@ -30,6 +30,7 @@ def test_insert_detection(mock_db_path):
     assert row[13] == b"dummy_jpeg"
     conn.close()
 
+
 def test_update_thumb(mock_db_path):
     storage = Storage(mock_db_path)
     ev = DetectionEvent(
@@ -41,7 +42,7 @@ def test_update_thumb(mock_db_path):
         confidence=0.9,
         bbox=(10, 10, 100, 100),
         model="yolo",
-        fps=10.0
+        fps=10.0,
     )
     obs_id = storage.insert_detection(ev, None)
     assert storage.thumb_for(obs_id) is None
@@ -59,6 +60,7 @@ def test_update_thumb_missing_row_is_noop(mock_db_path):
     count = conn.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
     conn.close()
     assert count == 0
+
 
 def test_upsert_node(mock_db_path):
     storage = Storage(mock_db_path)
@@ -78,6 +80,7 @@ def test_upsert_node(mock_db_path):
     assert row[3] == "offline"
     conn.close()
 
+
 def test_recent_observations(mock_db_path):
     storage = Storage(mock_db_path)
     for i in range(5):
@@ -90,7 +93,7 @@ def test_recent_observations(mock_db_path):
             confidence=0.9,
             bbox=(10, 10, 100, 100),
             model="yolo",
-            fps=10.0
+            fps=10.0,
         )
         storage.insert_detection(ev, None)
 

@@ -89,6 +89,23 @@ This document outlines follow-on work after the Phase 2 Power Management Testabi
 - Phase 3: End-to-end pipeline producing Grove Vision AI V2-compatible models with ≥90% detection accuracy on wildlife classes
 - Quality: Maintain 85%+ coverage, all harness gates green, comprehensive documentation
 
+## Operational Tooling and Live E2E
+
+The `feature/integration-e2e-validation` work landed a four-stage live end-to-end validator (`scripts/verify_e2e_journey.py`) and a Pi-diagnostic script suite under `scripts/`. Follow-on:
+
+- Wire `verify_e2e_journey.py` into a post-deploy gate (e.g. a `setup_and_test.ps1` opt-in flag or a manual GitHub Actions workflow_dispatch job that runs against a self-hosted runner on the Pi network).
+- Add an opt-in CI job that runs `integration-all` on every PR (currently runs locally via the harness).
+- Replace SSH password auth with key-based auth in `_pi_creds.py` and `deploy.py`; keep `PI_PASS` only as a fallback for first-run bootstrap.
+- Capture run artifacts (`verify_e2e_journey.py` output + DB row dump) into `reports/` on each successful sign-off.
+
+## Camera-side Thumbnail Preview
+
+The Phase 1 firmware currently skips thumbnail publishing because the stock Grove Vision AI V2 model does not emit a preview JPEG, and forcing `AI.invoke(...,show=true)` regresses detection (see the header comment in `camera-node-firmware/src/main.cpp`).
+
+- Export a custom YOLO model with image output enabled through the Phase 3 `ml-pipeline/` export path.
+- Once deployed to the Grove board, switch the firmware call to `AI.invoke(1, false, true)` and re-run `verify_e2e_journey.py` with the real camera as the publisher (no synthetic injection) to prove end-to-end thumbnail flow.
+- Add a kiosk-side dashboard counter for `thumbs_received` so operators can spot a regression in the preview path immediately.
+
 ## Open Questions
 
 - Should class_names.h pattern be backported to Phase 1 immediately or wait for full Phase 2 validation?

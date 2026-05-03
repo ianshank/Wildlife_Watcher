@@ -17,10 +17,15 @@ echo "==> wildlife-watcher installer (target user: $INSTALL_USER)"
 # ---------------------------------------------------------------------------
 # Prompt for broker credentials and WiFi info
 # ---------------------------------------------------------------------------
-read -rp "Mosquitto broker username [wildlife]: " BROKER_USER
+if [[ -z "${BROKER_PASS:-}" ]]; then
+    read -rp "Mosquitto broker username [wildlife]: " BROKER_USER
+    BROKER_USER="${BROKER_USER:-wildlife}"
+    read -rsp "Mosquitto broker password: " BROKER_PASS
+    echo
+fi
+
 BROKER_USER="${BROKER_USER:-wildlife}"
-read -rsp "Mosquitto broker password: " BROKER_PASS
-echo
+
 if [[ -z "$BROKER_PASS" ]]; then
     echo "Password cannot be empty." >&2
     exit 1
@@ -35,6 +40,14 @@ install -d -m 755 /opt/wildlife/kiosk
 install -d -m 755 -o "$INSTALL_USER" -g "$INSTALL_USER" /var/lib/wildlife
 install -d -m 755 -o "$INSTALL_USER" -g "$INSTALL_USER" /var/lib/wildlife/thumbs
 install -d -m 755 /etc/wildlife
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+echo "==> Installing prerequisites via apt"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update --allow-releaseinfo-change
+apt-get install -y mosquitto mosquitto-clients sqlite3 python3-venv python3-pyqt5 x11-xserver-utils matchbox-window-manager unclutter xserver-xorg xinit
 
 # ---------------------------------------------------------------------------
 # Mosquitto
@@ -84,7 +97,7 @@ chown "$INSTALL_USER:$INSTALL_USER" /etc/wildlife/config.yaml
 echo "==> Initializing SQLite database"
 DB=/var/lib/wildlife/observations.db
 if [[ ! -f "$DB" ]]; then
-    sudo -u "$INSTALL_USER" sqlite3 "$DB" < "$SCRIPT_DIR/../schema/observations.sql"
+    sudo -u "$INSTALL_USER" sqlite3 "$DB" < "$SCRIPT_DIR/schema/observations.sql"
     echo "    Created $DB"
 else
     echo "    $DB already exists, skipping"

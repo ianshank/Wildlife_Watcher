@@ -53,7 +53,8 @@ wildlife-watcher-phase1/
 |  |- 03-xiao-firmware.md            # Build & flash XIAO ESP32S3 Sense
 |  |- 04-bring-up.md                 # End-to-end bring-up and smoke test
 |  |- 05-troubleshooting.md          # Common gotchas
-|  `- 06-regression-checklist.md     # reviewer-facing regression runbook
+|  |- 06-regression-checklist.md     # reviewer-facing regression runbook
+|  `- 08-integration-e2e-plan.md     # cross-component integration and E2E roadmap
 |- pi-display-node/
 |  |- install.sh                     # one-shot installer for the Pi
 |  |- mosquitto/
@@ -77,6 +78,15 @@ wildlife-watcher-phase1/
 |     `- secrets.h.example           # WiFi/MQTT credentials template
 |- phase2/
 |  `- camera-node-firmware/          # modular PIR/deep-sleep firmware scaffold
+|- scripts/                          # Pi-side operational + live E2E validation
+|  |- _pi_creds.py                   # PI_HOST/PI_USER/PI_PASS env-var loader
+|  |- verify_pi_live.py              # broker reachability + heartbeat watch
+|  |- verify_pi_diagnose.py          # mosquitto/kiosk/DB triage
+|  |- verify_pi_deepdive.py          # deeper systemd/log inspection
+|  |- verify_pi_roundtrip.py         # synthetic publish + DB read-back
+|  |- verify_e2e_journey.py          # 4-stage live end-to-end user-journey gate
+|  `- read_xiao_serial.py            # timed USB-serial capture from the XIAO
+|- typings/                          # PEP 561 stubs for paho-mqtt + amqtt
 `- ml-pipeline/
    |- pyproject.toml                 # strict type/lint/test config for Phase 3
    |- src/wildlife_ml/               # dataset, export, eval, runtime helpers
@@ -98,6 +108,7 @@ Use these files as the fast path through the current repo state:
 - `ARCHITECTURE.md` for the C4-style system, container, and component map.
 - `CHANGELOG.md` for the current unreleased change summary.
 - `docs/06-regression-checklist.md` for the pre-PR validation runbook.
+- `docs/08-integration-e2e-plan.md` for the cross-component integration and E2E rollout plan.
 - `AGENTS.md` for repo-level constraints and the stable command surface.
 
 Use `main` as the base branch for new work until the stale `civ` default-branch metadata is corrected in GitHub repository settings.
@@ -128,6 +139,11 @@ python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-build-phase2
 python .agents/harness/orchestrator.py firmware-test-native  # 8 Unity tests
+python .agents/harness/orchestrator.py integration-kiosk-mqtt
+python .agents/harness/orchestrator.py integration-firmware-format
+python .agents/harness/orchestrator.py integration-schema-parity
+python .agents/harness/orchestrator.py integration-manifest-parity
+python .agents/harness/orchestrator.py integration-all
 python .agents/harness/orchestrator.py ml-pipeline-lint
 python .agents/harness/orchestrator.py ml-pipeline-typecheck
 python .agents/harness/orchestrator.py ml-pipeline-test  # 14 tests including hypothesis property tests
@@ -136,6 +152,19 @@ python .agents/harness/orchestrator.py mock-publish-detection --dry-run
 ```
 
 PlatformIO-based commands require the `platformio` package to be installed in the active Python environment used to run these `python` commands. Run `agents-md-coverage` when `AGENTS.md` files move or expand.
+
+### Live end-to-end validation (post-deploy)
+
+The `scripts/` directory carries Pi-side operational tooling that runs against the deployed system. All Pi credentials are read from environment variables (`PI_HOST` / `PI_USER` / `PI_PASS`); no secrets live in source. Broker credentials come from `MQTT_USER` / `MQTT_PASS`.
+
+```powershell
+$env:PI_PASS   = '<pi-ssh-password>'
+$env:MQTT_PASS = '<broker-password>'
+.\.venv\Scripts\python.exe scripts/verify_e2e_journey.py
+Remove-Item env:PI_PASS; Remove-Item env:MQTT_PASS
+```
+
+The live validator runs four stages and exits 0 only when all pass: real camera heartbeat → synthetic-camera detection + retained thumbnail publish → SSH-side row equality check on `observations.db` → byte-identity check of the stored `thumb_jpeg` BLOB. Smaller diagnostic helpers (`verify_pi_live.py`, `verify_pi_diagnose.py`, `verify_pi_deepdive.py`, `verify_pi_roundtrip.py`) cover narrower slices for triage.
 
 ## Agent harness
 

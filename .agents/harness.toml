@@ -17,6 +17,10 @@ ml-pipeline-lint = ["{python}", "-m", "ruff", "check", "--config", "{repo_root}/
 ml-pipeline-typecheck = ["{python}", "-m", "mypy", "--config-file", "{repo_root}/ml-pipeline/pyproject.toml", "{repo_root}/ml-pipeline/src", "{repo_root}/ml-pipeline/tests"]
 ml-pipeline-test = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests"]
 ml-pipeline-smoke = ["{python}", "-m", "wildlife_ml.runtime.onnx_smoke"]
+integration-kiosk-mqtt = ["{python}", "-m", "pytest", "pi-display-node/tests/test_integration_mqtt.py"]
+integration-firmware-format = ["{python}", "-m", "pytest", "pi-display-node/tests/test_integration_firmware_format.py"]
+integration-schema-parity = ["{python}", "-m", "pytest", "pi-display-node/tests/test_schema_parity.py"]
+integration-manifest-parity = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests/test_manifest_firmware_parity.py"]
 
 [agent_docs]
 required_paths = [

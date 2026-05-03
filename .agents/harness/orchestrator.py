@@ -187,6 +187,40 @@ def task_ml_pipeline_smoke(args: argparse.Namespace, context: HarnessContext) ->
     return run_named_command("ml-pipeline-smoke", context, args.dry_run)
 
 
+@register_task("integration-kiosk-mqtt")
+def task_integration_kiosk_mqtt(args: argparse.Namespace, context: HarnessContext) -> int:
+    return run_named_command("integration-kiosk-mqtt", context, args.dry_run)
+
+
+@register_task("integration-firmware-format")
+def task_integration_firmware_format(args: argparse.Namespace, context: HarnessContext) -> int:
+    return run_named_command("integration-firmware-format", context, args.dry_run)
+
+
+@register_task("integration-schema-parity")
+def task_integration_schema_parity(args: argparse.Namespace, context: HarnessContext) -> int:
+    return run_named_command("integration-schema-parity", context, args.dry_run)
+
+
+@register_task("integration-manifest-parity")
+def task_integration_manifest_parity(args: argparse.Namespace, context: HarnessContext) -> int:
+    return run_named_command("integration-manifest-parity", context, args.dry_run)
+
+
+@register_task("integration-all")
+def task_integration_all(args: argparse.Namespace, context: HarnessContext) -> int:
+    for name in (
+        "integration-schema-parity",
+        "integration-manifest-parity",
+        "integration-kiosk-mqtt",
+        "integration-firmware-format",
+    ):
+        exit_code = run_named_command(name, context, args.dry_run)
+        if exit_code != 0:
+            return exit_code
+    return 0
+
+
 @register_task("agents-md-coverage")
 def task_agents_md_coverage(args: argparse.Namespace, context: HarnessContext) -> int:
     missing = [
@@ -207,7 +241,7 @@ def task_mock_publish_detection(args: argparse.Namespace, context: HarnessContex
     cfg = load_wildlife_config(context.config.wildlife_config)
     mqtt_cfg = cfg["mqtt"]
     topic = topic_from_pattern(mqtt_cfg["topics"]["detections"], args.node_id)
-    auth = None
+    auth: Any = None
     if mqtt_cfg.get("username") or mqtt_cfg.get("password"):
         auth = {
             "username": mqtt_cfg.get("username", ""),

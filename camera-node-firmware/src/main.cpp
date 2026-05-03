@@ -21,8 +21,17 @@
 // Notes on the SSCMA library:
 //   The Seeed_Arduino_SSCMA library wraps the protocol the Grove Vision AI V2
 //   exposes over I2C. After AI.invoke(), AI.boxes() returns the bounding boxes
-//   from the most recent inference. Thumbnails are fetched via save_jpeg() and
-//   exposed as a base64-encoded String via last_image().
+//   from the most recent inference. The encoded JPEG preview is exposed via
+//   AI.last_image() as a base64-encoded String, but it is only populated when:
+//     (a) AI.invoke() is called with show=true (we keep show=false here
+//         because forcing show=true causes the device-side INVOKE to time out
+//         on the stock Grove model — empirically, every invoke returned
+//         nonzero and detections stopped flowing), AND
+//     (b) the model deployed to the Grove board was exported with image
+//         output enabled.
+//   When last_image() is empty (which is the common case for the stock model)
+//   we publish detections without a thumbnail; the kiosk handles missing
+//   thumbs gracefully.
 
 #include "wildlife/compat/firmware_deps.h"
 
@@ -173,13 +182,10 @@ static void mqttConnect() {
 // ---------------------------------------------------------------------------
 
 static void publishThumbIfAvailable(const char* frame_id) {
-  if (AI.save_jpeg() != CMD_OK) {
-    Serial.println("[wildlife] save_jpeg failed, skipping thumbnail publish");
-    return;
-  }
-
-  // The current SSCMA library already returns base64 text for the saved JPEG,
-  // so publish it directly after enforcing the raw-size-compatible payload cap.
+  // last_image() is populated as a side effect of AI.invoke() when both the
+  // call uses show=true and the deployed model emits a preview. With the
+  // stock Grove Vision AI V2 model neither holds, so this typically returns
+  // an empty String and we skip the publish quietly.
   String encodedThumb = AI.last_image();
   size_t encodedLen = encodedThumb.length();
   if (encodedLen == 0) {
@@ -313,8 +319,12 @@ void loop() {
   }
 
   // Pull latest inference from the Grove Vision AI V2.
-  // AI.invoke() returns 0 on success; nonzero typically means the device is
-  // busy or not connected. We just retry next loop.
+  // Default invoke (show=false) keeps the response payload small enough for
+  // the stock model to complete reliably. If you deploy a model that supports
+  // inline JPEG preview, change this to AI.invoke(1, false, true) and
+  // last_image() will start returning a base64 thumbnail.
+  // Returns 0 on success; nonzero typically means the device is busy or not
+  // connected, in which case we retry on the next loop iteration.
   int rc = AI.invoke();
   if (rc != 0) {
     delay(20);

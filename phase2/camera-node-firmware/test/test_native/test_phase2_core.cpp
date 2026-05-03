@@ -236,6 +236,44 @@ void test_base64_encoded_length_rounds_up_to_quartet() {
     TEST_ASSERT_EQUAL_UINT32(8U, static_cast<unsigned int>(wildlife::base64_encoded_length(4U)));
 }
 
+void test_thumb_topic_round_trip_full_path() {
+    // Mirrors the Python firmware-format round-trip in
+    // pi-display-node/tests/test_integration_firmware_format.py which builds
+    // the topic as f"{thumbs_root}/{node_id}/{frame_id}". Pinning the literal
+    // byte sequence here means a change to either side surfaces as a paired
+    // failure on both the Python and Unity surfaces.
+    constexpr const char kCompositeKey[] = "phase2-node/f_000123";
+    constexpr const char kExpected[] = "wildlife/thumbs/phase2-node/f_000123";
+    char topic[96]{};
+    const auto written = wildlife::format_thumb_topic(
+        topic,
+        sizeof(topic),
+        wildlife::kThumbsTopicRoot,
+        kCompositeKey);
+    TEST_ASSERT_EQUAL_STRING(kExpected, topic);
+    TEST_ASSERT_EQUAL_UINT32(static_cast<unsigned int>(sizeof(kExpected) - 1U),
+                             static_cast<unsigned int>(written));
+}
+
+void test_thumb_payload_budget_matches_python_round_trip() {
+    // Pins the base64 budget literal that the Python parity test computes from
+    // WILDLIFE_MAX_THUMB_BYTES (16384 -> ((16384+2)/3)*4 = 21848). Any drift in
+    // either kMaxThumbBytes or the base64 formula must fail here.
+    constexpr std::size_t kExpectedBudget = 21848U;
+    static_assert(wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes) == kExpectedBudget,
+                  "Thumb base64 budget must remain pinned to the Python parity literal");
+    TEST_ASSERT_EQUAL_UINT32(static_cast<unsigned int>(kExpectedBudget),
+                             static_cast<unsigned int>(
+                                 wildlife::max_thumb_payload_bytes(wildlife::kMaxThumbBytes)));
+}
+
+void test_thumbs_topic_root_matches_kiosk_contract() {
+    // Pins the topic root the kiosk subscribes to (wildlife/thumbs/+/+ in
+    // pi-display-node/kiosk/config.yaml) and the Python parity test parses out
+    // of WILDLIFE_THUMBS_TOPIC_ROOT.
+    TEST_ASSERT_EQUAL_STRING("wildlife/thumbs", wildlife::kThumbsTopicRoot);
+}
+
 void test_runtime_config_constants_are_consistent() {
     // The native env should expose every new tunable so that platformio.ini
     // overrides flow through to firmware code paths and tests alike.
@@ -289,6 +327,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_format_thumb_topic_reports_truncation_via_written_length);
     RUN_TEST(test_thumb_payload_zero_budget_rejects_any_payload);
     RUN_TEST(test_base64_encoded_length_rounds_up_to_quartet);
+    RUN_TEST(test_thumb_topic_round_trip_full_path);
+    RUN_TEST(test_thumb_payload_budget_matches_python_round_trip);
+    RUN_TEST(test_thumbs_topic_root_matches_kiosk_contract);
     RUN_TEST(test_runtime_config_constants_are_consistent);
     return UNITY_END();
 }
