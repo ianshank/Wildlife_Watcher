@@ -60,6 +60,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _build_parser().parse_args()
     config = TrainConfig(
         dataset_yaml=args.dataset_yaml,

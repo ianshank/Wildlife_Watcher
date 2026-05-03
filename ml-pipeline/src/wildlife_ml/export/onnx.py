@@ -81,6 +81,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _build_parser().parse_args()
     return run_export(args.weights_path, args.output_dir, dry_run=args.dry_run)
 
