@@ -186,6 +186,13 @@ inline constexpr std::uint32_t kPirDebounceMs =
     static_cast<std::uint32_t>(WILDLIFE_PIR_DEBOUNCE_MS);
 inline constexpr std::uint32_t kWakeBootGraceMs =
     static_cast<std::uint32_t>(WILDLIFE_WAKE_BOOT_GRACE_MS);
+// should_grant_boot_grace() relies on uint32 wrap-safe subtraction; the
+// grace window must be strictly < 2^31 ms (~24.8 days) for the half-range
+// comparison to remain unambiguous. Enforce at compile time so a future
+// override via -DWILDLIFE_WAKE_BOOT_GRACE_MS=... cannot silently break it.
+static_assert(
+    kWakeBootGraceMs < 0x80000000UL,
+    "WILDLIFE_WAKE_BOOT_GRACE_MS must be < 2^31 ms for wrap-safe boot-grace comparison");
 inline constexpr const char* kDetectionTopicRoot = WILDLIFE_DETECTION_TOPIC_ROOT;
 inline constexpr const char* kStatusTopicRoot = WILDLIFE_STATUS_TOPIC_ROOT;
 inline constexpr const char* kThumbsTopicRoot = WILDLIFE_THUMBS_TOPIC_ROOT;

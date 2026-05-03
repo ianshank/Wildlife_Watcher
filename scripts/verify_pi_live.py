@@ -32,11 +32,30 @@ from _ssh_client import build_ssh_client, connect
 log = logging.getLogger("verify_pi_live")
 
 HOST, USER, PASS = _load_creds()
+# Optional public-key auth: when ``PI_KEY`` is set the helper threads it
+# into ``_ssh_client.connect(key_filename=...)`` alongside ``PASS`` (which
+# may be a key passphrase rather than a login password).
+PI_KEY = os.environ.get("PI_KEY") or None
 MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
 MQTT_PASS = os.environ.get("MQTT_PASS", "")
-# Camera target: PI_TARGETS_FILE -> CAMERA_IP env. No literal fallback;
-# misconfiguration surfaces as a RuntimeError at import time.
-CAMERA_IP = resolve_target("camera").host
+
+
+def _resolve_camera_ip() -> str:
+    """Resolve the camera target lazily so misconfiguration surfaces as a
+    user-friendly error inside ``main()`` rather than as an import-time
+    stack trace from ``resolve_target('camera')``.
+    """
+    try:
+        return resolve_target("camera").host
+    except RuntimeError as exc:
+        sys.stderr.write(
+            f"error: cannot resolve camera target: {exc}\n"
+            "  Hint: set CAMERA_IP, or add a 'camera' entry to "
+            "~/.wildlife/pi-targets.yaml.\n"
+        )
+        sys.exit(2)
+
+
 CAMERA_PING_COUNT = int(os.environ.get("CAMERA_PING_COUNT", "3"))
 CAMERA_PING_TIMEOUT_S = int(os.environ.get("CAMERA_PING_TIMEOUT_S", "2"))
 LIVE_CAPTURE_DURATION_S = int(os.environ.get("LIVE_CAPTURE_DURATION_S", "30"))
@@ -64,15 +83,16 @@ def main() -> int:
 
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"FAILED: SSH connect failed: {exc}")
         client.close()
         return 1
     try:
+        camera_ip = _resolve_camera_ip()
         ping_cmd = (
             f"ping -c {CAMERA_PING_COUNT} -W {CAMERA_PING_TIMEOUT_S} "
-            f"{shlex.quote(CAMERA_IP)}"
+            f"{shlex.quote(camera_ip)}"
         )
         run(client, "ping-cam", ping_cmd,
             timeout=CAMERA_PING_COUNT * (CAMERA_PING_TIMEOUT_S + 5))

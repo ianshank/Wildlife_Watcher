@@ -159,11 +159,11 @@ The `scripts/` directory carries Pi-side operational tooling that runs against t
 
 | Env var | Required | Purpose |
 | --- | --- | --- |
-| `PI_HOST` / `PI_USER` | optional | Display Pi address + user (defaults: `192.168.4.21`, `ian`). |
-| `PI_PASS` | required unless `PI_KEY` is set | SSH password fallback. |
-| `PI_KEY` | optional (recommended) | Path to a private key for public-key SSH auth; supersedes password-only flow in `deploy.py` and `_ssh_client.connect()`. |
+| `PI_HOST` / `PI_USER` | optional (env layer of `_pi_targets`) | Display Pi address + user when no `PI_TARGETS_FILE` entry exists. No literal default — `_pi_targets.resolve_target('display')` raises `RuntimeError` when neither source is configured. |
+| `PI_PASS` | required unless `PI_KEY` is set (deploy.py always needs it for `sudo -S`) | SSH password / key passphrase. |
+| `PI_KEY` | optional (recommended) | Path to a private key for public-key SSH auth; threaded through `_ssh_client.connect(key_filename=…)` in deploy.py and the verify_pi_*.py scripts. |
 | `PI_TARGETS_FILE` | optional | YAML file resolving named targets (`camera`, `display`); default `~/.wildlife/pi-targets.yaml`. Schema: `targets: { <name>: { host: <ip>, user: <name> } }`. |
-| `CAMERA_IP` / `CAMERA_USER` | optional | Per-target env override for the `camera` target. |
+| `CAMERA_IP` / `CAMERA_USER` | optional (env layer of `_pi_targets`) | Per-target env override for the `camera` target. No literal default. |
 | `MQTT_USER` / `MQTT_PASS` | required | Broker credentials. |
 | `PI_HOST_KEY_POLICY` / `PI_KNOWN_HOSTS` | optional | MITM-mitigation knobs for `_ssh_client.build_ssh_client()`.
 

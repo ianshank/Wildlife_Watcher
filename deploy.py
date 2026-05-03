@@ -33,9 +33,13 @@ from pathlib import Path
 
 import paramiko
 
-# Local import - keeps the env-var loader in one place across the repo.
+# Local import - keeps the env-var loader and SSH wiring in one place
+# across the repo. ``_ssh_client.connect`` centralises the auth-priority
+# matrix (key + password vs. password-only) so ``deploy.py`` does not
+# need to re-implement (and unit-test) the same logic.
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 from _pi_creds import load as _load_pi_creds
+from _ssh_client import connect as _ssh_connect
 
 
 def _require(env_name: str) -> str:
@@ -109,25 +113,16 @@ def main() -> int:
     print(f"Connecting to {user}@{host}...")
     ssh = _build_ssh_client()
     try:
-        if pi_key is not None:
-            ssh.connect(
-                host,
-                username=user,
-                key_filename=pi_key,
-                password=pi_pass,
-                timeout=10,
-                allow_agent=True,
-                look_for_keys=True,
-            )
-        else:
-            ssh.connect(
-                host,
-                username=user,
-                password=pi_pass,
-                timeout=10,
-                allow_agent=False,
-                look_for_keys=False,
-            )
+        # Delegate the auth-priority matrix (key + optional password vs.
+        # password-only) to the centralised, unit-tested helper.
+        _ssh_connect(
+            ssh,
+            host,
+            user,
+            password=pi_pass,
+            key_filename=pi_key,
+            timeout=10,
+        )
     except Exception as e:
         print(f"SSH failed: {e}")
         return 1

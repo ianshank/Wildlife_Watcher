@@ -95,12 +95,33 @@ def test_load_legacy_exits_when_pi_pass_missing(monkeypatch, capsys):
     assert "PI_PASS" in err
 
 
-def test_load_legacy_allows_key_only(monkeypatch):
-    """PI_KEY without PI_PASS must succeed and return empty password."""
+def test_load_legacy_still_requires_pi_pass_when_pi_key_set(monkeypatch, capsys):
+    """Legacy 3-tuple shim cannot forward a key path to connect(), so it
+    must keep PI_PASS mandatory even when PI_KEY is set. Callers that
+    want key-only auth use Credentials.load_from_env() + key_filename=.
+    """
     monkeypatch.setenv("PI_HOST", "10.0.0.99")
     monkeypatch.setenv("PI_USER", "bob")
     monkeypatch.delenv("PI_PASS", raising=False)
     monkeypatch.setenv("PI_KEY", "/home/bob/.ssh/id_ed25519")
     monkeypatch.setenv("PI_TARGETS_FILE", "/nonexistent/wildlife-targets.yaml")
-    host, user, pw = _pi_creds.load()
-    assert (host, user, pw) == ("10.0.0.99", "bob", "")
+    with pytest.raises(SystemExit) as excinfo:
+        _pi_creds.load()
+    assert excinfo.value.code == 2
+
+
+def test_load_legacy_exits_cleanly_on_unresolvable_target(monkeypatch, capsys):
+    """resolve_target('display') raises RuntimeError when no source is
+    configured; the legacy loader must translate that into exit(2) with
+    a friendly hint instead of leaking a stack trace.
+    """
+    monkeypatch.delenv("PI_HOST", raising=False)
+    monkeypatch.delenv("PI_USER", raising=False)
+    monkeypatch.delenv("PI_PASS", raising=False)
+    monkeypatch.delenv("PI_KEY", raising=False)
+    monkeypatch.setenv("PI_TARGETS_FILE", "/nonexistent/wildlife-targets.yaml")
+    with pytest.raises(SystemExit) as excinfo:
+        _pi_creds.load()
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "display" in err.lower() or "PI_HOST" in err

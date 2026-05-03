@@ -83,28 +83,39 @@ class Credentials:
 
 
 def load() -> tuple[str, str, str]:
-    """Legacy 3-tuple loader.
+    """Legacy 3-tuple loader. Exits the process on misconfiguration.
 
-    Returns ``(host, user, password)``. The password is an empty string
-    when ``PI_KEY`` is set but ``PI_PASS`` is not — this lets key-only
-    scripts (e.g. ``verify_pi_*.py``) use ``paramiko``'s ``key_filename``
-    path without exporting a dummy password. The process still exits 2
-    when **neither** ``PI_KEY`` nor ``PI_PASS`` is set.
-
-    New callers should use :meth:`Credentials.load_from_env` and consume
-    ``key_path`` directly. Callers that genuinely need a password (e.g.
-    ``sudo -S`` invocation) must validate it themselves — see
-    ``deploy.py``.
+    Behaviour:
+      * Resolves ``host`` / ``user`` via :func:`_pi_targets.resolve_target`.
+        A ``RuntimeError`` (no YAML entry, no env vars) is caught and
+        translated into a friendly error + ``sys.exit(2)`` so callers
+        see a configuration hint instead of a Python stack trace.
+      * Requires ``PI_PASS``. Key-only auth is intentionally *not*
+        supported by this 3-tuple shim because callers cannot forward
+        a key path to :func:`_ssh_client.connect`. New scripts should
+        use :meth:`Credentials.load_from_env` and read ``key_path``
+        directly, then pass it as ``key_filename=`` to ``connect()``.
+      * Existing ``verify_pi_*.py`` scripts may additionally read
+        ``PI_KEY`` themselves and forward it to ``connect()``; this
+        loader stays password-shaped to preserve the legacy contract.
     """
-    target = resolve_target("display")
-    pw = os.environ.get("PI_PASS") or ""
-    key = os.environ.get("PI_KEY") or ""
-    if not pw and not key:
+    try:
+        target = resolve_target("display")
+    except RuntimeError as exc:
         sys.stderr.write(
-            "error: PI_PASS or PI_KEY environment variable is required.\n"
+            f"error: cannot resolve display Pi target: {exc}\n"
+            "  Hint: set PI_HOST/PI_USER, or create ~/.wildlife/pi-targets.yaml\n"
+            "        with a 'display' entry. See README.md.\n"
+        )
+        sys.exit(2)
+    pw = os.environ.get("PI_PASS")
+    if not pw:
+        sys.stderr.write(
+            "error: PI_PASS environment variable is required.\n"
             "  PowerShell:  $env:PI_PASS = '<password>'\n"
             "  bash:        export PI_PASS='<password>'\n"
-            "  key auth:    set PI_KEY=<path-to-private-key>\n"
+            "  Note: PI_KEY (key auth) does not flow through this legacy\n"
+            "  loader; verify_pi_*.py reads PI_KEY directly.\n"
         )
         sys.exit(2)
     return target.host, target.user, pw

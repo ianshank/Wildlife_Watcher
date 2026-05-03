@@ -219,9 +219,9 @@ def step2_inject(broker: str, port: int, user: str, pw: str,
 # Step 3 + 4 — confirm row landed in observations.db on the Pi
 # ---------------------------------------------------------------------------
 
-def _ssh(host: str, user: str, pw: str) -> paramiko.SSHClient:
+def _ssh(host: str, user: str, pw: str, key_filename: str | None = None) -> paramiko.SSHClient:
     cli = build_ssh_client()
-    _ssh_connect(cli, host, user, pw, timeout=15)
+    _ssh_connect(cli, host, user, pw, key_filename=key_filename, timeout=15)
     return cli
 
 
@@ -250,7 +250,8 @@ def _sudo_exec(cli: paramiko.SSHClient, cmd: str, sudo_pw: str,
 
 def step3_4_verify_db(host: str, user: str, pw: str,
                       frame: InjectedFrame, settle_s: int = 3,
-                      poll_s: int = 12, poll_interval_s: float = 1.0) -> None:
+                      poll_s: int = 12, poll_interval_s: float = 1.0,
+                      key_filename: str | None = None) -> None:
     """Confirm the kiosk persisted both the detection row and the thumbnail.
 
     The kiosk processes detection and thumbnail messages from the same MQTT
@@ -262,7 +263,7 @@ def step3_4_verify_db(host: str, user: str, pw: str,
     """
     _say("step3", f"settling {settle_s}s before first poll ...")
     time.sleep(settle_s)
-    cli = _ssh(host, user, pw)
+    cli = _ssh(host, user, pw, key_filename=key_filename)
     try:
         # Query the row by (node_id, frame_id). Output is pipe-separated; the
         # last field is hex-encoded thumb_jpeg or empty.
@@ -373,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     pi_host, pi_user, pi_pass = _load_creds()
+    pi_key = os.environ.get("PI_KEY") or None
     broker = args.broker or pi_host
 
     if not args.mqtt_pass:
@@ -411,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         step3_4_verify_db(pi_host, pi_user, pi_pass, frame,
-                          settle_s=args.settle)
+                          settle_s=args.settle, key_filename=pi_key)
     except Exception as exc:
         failures.append(str(exc))
 

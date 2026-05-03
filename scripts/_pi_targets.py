@@ -39,7 +39,10 @@ try:  # pragma: no cover - optional import branch
     import yaml as _yaml_module
 
     _yaml = _yaml_module
-except Exception:  # pragma: no cover - optional import branch
+except ImportError:  # pragma: no cover - optional import branch
+    # Narrow to ImportError so genuine PyYAML errors (e.g. a corrupted
+    # install) surface as a stack trace rather than silently disabling
+    # file-based target resolution.
     _yaml = None
 
 

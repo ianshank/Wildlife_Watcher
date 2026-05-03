@@ -30,6 +30,7 @@ from _ssh_client import build_ssh_client, connect
 log = logging.getLogger("verify_pi_roundtrip")
 
 HOST, USER, PASS = _load_creds()
+PI_KEY = os.environ.get("PI_KEY") or None
 MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
 MQTT_PASS = os.environ.get("MQTT_PASS", "")
 
@@ -123,7 +124,7 @@ def main(checks: Iterable[tuple[str, str, int]]) -> int:
     print(f"Connecting to {USER}@{HOST} ...")
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"SSH connect failed: {exc}")
         return 1

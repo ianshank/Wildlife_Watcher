@@ -5,6 +5,7 @@ Python kiosk (the systemd unit is a one-shot 'readiness check').
 from __future__ import annotations
 
 import logging
+import os
 import shlex
 import sys
 
@@ -14,6 +15,7 @@ from _ssh_client import build_ssh_client, connect
 log = logging.getLogger("verify_pi_deepdive")
 
 HOST, USER, PASS = _load_creds()
+PI_KEY = os.environ.get("PI_KEY") or None
 
 
 def shell(client, label, cmd, timeout=20):
@@ -53,7 +55,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"FAILED: SSH connect failed: {exc}")
         client.close()
