@@ -50,7 +50,7 @@ from typing import Any
 
 import paramiko
 from _mqtt_client import make_client as _make_mqtt_client
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
 from _ssh_client import build_ssh_client
 from _ssh_client import connect as _ssh_connect
 
@@ -219,9 +219,10 @@ def step2_inject(broker: str, port: int, user: str, pw: str,
 # Step 3 + 4 — confirm row landed in observations.db on the Pi
 # ---------------------------------------------------------------------------
 
-def _ssh(host: str, user: str, pw: str) -> paramiko.SSHClient:
+def _ssh(host: str, user: str, pw: str | None,
+         key_filename: str | None = None) -> paramiko.SSHClient:
     cli = build_ssh_client()
-    _ssh_connect(cli, host, user, pw, timeout=15)
+    _ssh_connect(cli, host, user, pw, key_filename=key_filename, timeout=15)
     return cli
 
 
@@ -248,9 +249,10 @@ def _sudo_exec(cli: paramiko.SSHClient, cmd: str, sudo_pw: str,
     return rc, "".join(out), "".join(err)
 
 
-def step3_4_verify_db(host: str, user: str, pw: str,
+def step3_4_verify_db(host: str, user: str, pw: str | None,
                       frame: InjectedFrame, settle_s: int = 3,
-                      poll_s: int = 12, poll_interval_s: float = 1.0) -> None:
+                      poll_s: int = 12, poll_interval_s: float = 1.0,
+                      key_filename: str | None = None) -> None:
     """Confirm the kiosk persisted both the detection row and the thumbnail.
 
     The kiosk processes detection and thumbnail messages from the same MQTT
@@ -262,7 +264,7 @@ def step3_4_verify_db(host: str, user: str, pw: str,
     """
     _say("step3", f"settling {settle_s}s before first poll ...")
     time.sleep(settle_s)
-    cli = _ssh(host, user, pw)
+    cli = _ssh(host, user, pw, key_filename=key_filename)
     try:
         # Query the row by (node_id, frame_id). Output is pipe-separated; the
         # last field is hex-encoded thumb_jpeg or empty.
@@ -280,6 +282,10 @@ def step3_4_verify_db(host: str, user: str, pw: str,
         deadline = time.monotonic() + poll_s
         last_err: str = ""
         cols: list[str] = []
+        # main() guarantees pw is not None when step3_4_verify_db runs
+        # (sudo -S would otherwise hang on a blank stdin); the assert
+        # narrows the type for mypy without changing runtime behaviour.
+        assert pw is not None
         while time.monotonic() < deadline:
             rc, out, err = _sudo_exec(cli, cmd, pw)
             if rc != 0:
@@ -372,13 +378,27 @@ def main(argv: list[str] | None = None) -> int:
                    help="seconds to wait for kiosk to ingest the publish")
     args = p.parse_args(argv)
 
-    pi_host, pi_user, pi_pass = _load_creds()
+    _creds = _load_creds()
+    pi_host, pi_user, pi_pass = _creds.host, _creds.user, _creds.password
+    pi_key = _creds.key_path
     broker = args.broker or pi_host
 
     if not args.mqtt_pass:
         sys.stderr.write(
             "error: MQTT broker password is required. "
             "Set MQTT_PASS env var or pass --mqtt-pass.\n"
+        )
+        return 2
+
+    # Step 3 runs the SQL probe via ``sudo -S``, which needs a password
+    # piped to stdin. Key-only SSH (PI_KEY without PI_PASS) cannot satisfy
+    # that, so PI_PASS is required for the full journey even when key auth
+    # is configured for SSH itself.
+    if pi_pass is None:
+        sys.stderr.write(
+            "error: PI_PASS is required for verify_e2e_journey.py because "
+            "step 3 runs the observations.db probe via 'sudo -S'. Set "
+            "PI_PASS even when PI_KEY is configured for SSH auth.\n"
         )
         return 2
 
@@ -411,7 +431,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         step3_4_verify_db(pi_host, pi_user, pi_pass, frame,
-                          settle_s=args.settle)
+                          settle_s=args.settle, key_filename=pi_key)
     except Exception as exc:
         failures.append(str(exc))
 

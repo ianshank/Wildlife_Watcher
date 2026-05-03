@@ -38,6 +38,12 @@ camera-node-firmware/upload.log
 *.key
 *.pfx
 
+# Local Pi-target config (resolved by scripts/_pi_targets.py).
+# Default location is ~/.wildlife/pi-targets.yaml; if a developer
+# stashes a project-local copy, keep it out of source control.
+pi-targets.yaml
+.wildlife/
+
 # SQLite and runtime data
 *.db
 *.db-journal

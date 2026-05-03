@@ -152,3 +152,48 @@ def test_connect_overrides(fake_paramiko):
     assert c.connect_kwargs["timeout"] == 30
     assert c.connect_kwargs["banner_timeout"] == 5
     assert c.connect_kwargs["auth_timeout"] == 20
+
+
+def test_connect_with_key_only_uses_pubkey_auth(fake_paramiko):
+    """key_filename without password: agent + key lookup must be enabled."""
+    c = _FakeClient()
+    _ssh_client.connect(
+        cast(_ssh_client.paramiko.SSHClient, c),
+        "h", "u", key_filename="/tmp/id_ed25519",
+    )
+    assert c.connect_kwargs is not None
+    assert c.connect_kwargs["key_filename"] == "/tmp/id_ed25519"
+    assert c.connect_kwargs["password"] is None
+    assert c.connect_kwargs["allow_agent"] is True
+    assert c.connect_kwargs["look_for_keys"] is True
+
+
+def test_connect_with_password_only_keeps_legacy_safe_defaults(fake_paramiko):
+    c = _FakeClient()
+    _ssh_client.connect(c, "h", "u", "pw")  # type: ignore[arg-type]
+    assert c.connect_kwargs is not None
+    assert "key_filename" not in c.connect_kwargs
+    assert c.connect_kwargs["password"] == "pw"
+    assert c.connect_kwargs["allow_agent"] is False
+    assert c.connect_kwargs["look_for_keys"] is False
+
+
+def test_connect_with_both_password_and_key_uses_key_path(fake_paramiko):
+    """Encrypted-key flow: both supplied -> key_filename path wins, password
+    is still threaded through so paramiko can decrypt the key."""
+    c = _FakeClient()
+    _ssh_client.connect(
+        cast(_ssh_client.paramiko.SSHClient, c),
+        "h", "u", "pw", key_filename="/tmp/id_ed25519",
+    )
+    assert c.connect_kwargs is not None
+    assert c.connect_kwargs["key_filename"] == "/tmp/id_ed25519"
+    assert c.connect_kwargs["password"] == "pw"
+    assert c.connect_kwargs["allow_agent"] is True
+    assert c.connect_kwargs["look_for_keys"] is True
+
+
+def test_connect_without_password_or_key_raises(fake_paramiko):
+    c = _FakeClient()
+    with pytest.raises(ValueError, match="key_filename"):
+        _ssh_client.connect(c, "h", "u")  # type: ignore[arg-type]

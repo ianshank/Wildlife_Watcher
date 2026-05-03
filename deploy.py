@@ -33,9 +33,13 @@ from pathlib import Path
 
 import paramiko
 
-# Local import - keeps the env-var loader in one place across the repo.
+# Local import - keeps the env-var loader and SSH wiring in one place
+# across the repo. ``_ssh_client.connect`` centralises the auth-priority
+# matrix (key + password vs. password-only) so ``deploy.py`` does not
+# need to re-implement (and unit-test) the same logic.
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from _pi_creds import load as _load_pi_creds
+from _pi_creds import load_or_exit as _load_pi_creds
+from _ssh_client import connect as _ssh_connect
 
 
 def _require(env_name: str) -> str:
@@ -83,9 +87,25 @@ def _build_ssh_client() -> paramiko.SSHClient:
 
 
 def main() -> int:
-    host, user, pi_pass = _load_pi_creds()
+    creds = _load_pi_creds()
+    host, user, pi_pass, pi_key = (
+        creds.host, creds.user, creds.password, creds.key_path,
+    )
     broker_user = os.environ.get("BROKER_USER", "wildlife").strip() or "wildlife"
     broker_pass = _require("BROKER_PASS")
+
+    # ``deploy.py`` shells the installer with ``sudo -S`` and pipes the Pi
+    # password into stdin; key-only SSH auth is therefore not sufficient on
+    # its own. ``load_or_exit`` permits ``password=None`` when ``PI_KEY``
+    # is set, so we re-enforce ``PI_PASS`` here for the sudo path. Surface
+    # a clear error rather than letting sudo hang forever on a blank stdin.
+    if not pi_pass:
+        sys.stderr.write(
+            "error: PI_PASS is required for deploy.py because the installer "
+            "runs `sudo -S` on the Pi. Set PI_PASS even when PI_KEY is "
+            "configured for SSH auth.\n"
+        )
+        return 2
 
     local_dir = Path(__file__).parent / "pi-display-node"
     remote_dir = f"/home/{user}/pi-display-node"
@@ -93,8 +113,16 @@ def main() -> int:
     print(f"Connecting to {user}@{host}...")
     ssh = _build_ssh_client()
     try:
-        ssh.connect(host, username=user, password=pi_pass, timeout=10,
-                    allow_agent=False, look_for_keys=False)
+        # Delegate the auth-priority matrix (key + optional password vs.
+        # password-only) to the centralised, unit-tested helper.
+        _ssh_connect(
+            ssh,
+            host,
+            user,
+            password=pi_pass,
+            key_filename=pi_key,
+            timeout=10,
+        )
     except Exception as e:
         print(f"SSH failed: {e}")
         return 1

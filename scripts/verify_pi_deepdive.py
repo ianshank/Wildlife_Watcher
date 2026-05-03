@@ -8,12 +8,14 @@ import logging
 import shlex
 import sys
 
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
 from _ssh_client import build_ssh_client, connect
 
 log = logging.getLogger("verify_pi_deepdive")
 
-HOST, USER, PASS = _load_creds()
+_creds = _load_creds()
+HOST, USER, PASS = _creds.host, _creds.user, _creds.password
+PI_KEY = _creds.key_path
 
 
 def shell(client, label, cmd, timeout=20):
@@ -22,6 +24,9 @@ def shell(client, label, cmd, timeout=20):
     chan.get_pty()
     chan.settimeout(timeout)
     chan.exec_command(f"sudo -S -p '' bash -c {shlex.quote(cmd)}")
+    # ``main()`` exits if PASS is None before any shell() call, so the
+    # narrowing is always safe at runtime; the assert is for mypy.
+    assert PASS is not None
     chan.send(PASS + "\n")
     out_chunks = []
     while True:
@@ -51,9 +56,19 @@ def plain(client, label, cmd, timeout=20):
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    # ``shell()`` runs every command via ``sudo -S`` and pipes ``PASS``
+    # into stdin; PI_KEY-only auth is therefore not sufficient on its
+    # own here. Surface a clear error rather than letting sudo hang.
+    if PASS is None:
+        sys.stderr.write(
+            "error: PI_PASS is required for verify_pi_deepdive.py because "
+            "every probe runs 'sudo -S' on the Pi. Set PI_PASS even when "
+            "PI_KEY is configured for SSH auth.\n"
+        )
+        return 2
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"FAILED: SSH connect failed: {exc}")
         client.close()

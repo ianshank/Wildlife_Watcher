@@ -7,7 +7,9 @@ MQTT_USER, MQTT_PASS
     Credentials for the Pi-side ``mosquitto_sub`` (broker has
     ``allow_anonymous false``). ``MQTT_PASS`` is required.
 CAMERA_IP
-    LAN address of the camera node to ``ping`` (default: ``192.168.4.30``).
+    LAN address of the camera node to ``ping``. Resolved via
+    :mod:`_pi_targets` (``PI_TARGETS_FILE`` -> ``CAMERA_IP`` env). No
+    literal fallback — set one of those sources before running.
 CAMERA_PING_COUNT, CAMERA_PING_TIMEOUT_S
     Tunables for the ping command (defaults: 3 packets, 2 s timeout).
 LIVE_CAPTURE_DURATION_S
@@ -23,15 +25,38 @@ import os
 import shlex
 import sys
 
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
+from _pi_targets import resolve_target
 from _ssh_client import build_ssh_client, connect
 
 log = logging.getLogger("verify_pi_live")
 
-HOST, USER, PASS = _load_creds()
+_creds = _load_creds()
+HOST, USER, PASS = _creds.host, _creds.user, _creds.password
+# PI_KEY (when set) is forwarded to ``_ssh_client.connect(key_filename=)``
+# alongside PASS (which may be a key passphrase). PI_KEY-only auth is
+# supported: PASS is then ``None`` and connect() relies solely on the key.
+PI_KEY = _creds.key_path
 MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
 MQTT_PASS = os.environ.get("MQTT_PASS", "")
-CAMERA_IP = os.environ.get("CAMERA_IP", "192.168.4.30")
+
+
+def _resolve_camera_ip() -> str:
+    """Resolve the camera target lazily so misconfiguration surfaces as a
+    user-friendly error inside ``main()`` rather than as an import-time
+    stack trace from ``resolve_target('camera')``.
+    """
+    try:
+        return resolve_target("camera").host
+    except RuntimeError as exc:
+        sys.stderr.write(
+            f"error: cannot resolve camera target: {exc}\n"
+            "  Hint: set CAMERA_IP, or add a 'camera' entry to "
+            "~/.wildlife/pi-targets.yaml.\n"
+        )
+        sys.exit(2)
+
+
 CAMERA_PING_COUNT = int(os.environ.get("CAMERA_PING_COUNT", "3"))
 CAMERA_PING_TIMEOUT_S = int(os.environ.get("CAMERA_PING_TIMEOUT_S", "2"))
 LIVE_CAPTURE_DURATION_S = int(os.environ.get("LIVE_CAPTURE_DURATION_S", "30"))
@@ -59,15 +84,16 @@ def main() -> int:
 
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"FAILED: SSH connect failed: {exc}")
         client.close()
         return 1
     try:
+        camera_ip = _resolve_camera_ip()
         ping_cmd = (
             f"ping -c {CAMERA_PING_COUNT} -W {CAMERA_PING_TIMEOUT_S} "
-            f"{shlex.quote(CAMERA_IP)}"
+            f"{shlex.quote(camera_ip)}"
         )
         run(client, "ping-cam", ping_cmd,
             timeout=CAMERA_PING_COUNT * (CAMERA_PING_TIMEOUT_S + 5))

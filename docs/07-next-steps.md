@@ -1,15 +1,23 @@
 # Next Steps - Phase 2/3 Development
 
-This document outlines follow-on work after the Phase 2 PIR Wake-Source Classification & Type Safety PR is merged.
+This document outlines follow-on work after the Phase 2 hardware-wiring & ops-hardening PR is merged.
 
 ## Phase 2: PIR Wake & Deep Sleep — remaining hardware wiring
 
-The native-testable headers are complete. What remains is wiring them into the live firmware loop:
+The host-testable policy + ISR + boot-grace are complete. What remains is on-device validation:
 
-- [ ] Wire `should_accept_pir_edge()` into `main.cpp` ISR handler (debounce on the interrupt line)
-- [ ] Wire `kWakeBootGraceMs` into `PowerManager::maybe_sleep()` post-PIR grace period so brief detection bursts don't immediately re-enter deep sleep
+- [x] Wire `should_accept_pir_edge()` into `main.cpp` ISR handler (debounce on the interrupt line)
+- [x] Wire `kWakeBootGraceMs` into `PowerManager::maybe_sleep()` post-PIR grace period so brief detection bursts don't immediately re-enter deep sleep
+- [x] WiFi reconnect backoff helper (`next_wifi_backoff_ms`) with `static_assert`-guarded config tunables
 - [ ] Add hardware validation on XIAO ESP32S3 Sense (on-device PIR cycling: trigger PIR, observe deep-sleep entry, confirm wake, check that camera heartbeat resumes on `wildlife/status/<node>`)
 - [ ] Document power consumption measurements (active polling vs PIR-gated sleep duty cycle)
+- [ ] Hardware-in-the-loop CI runner (deferred — see ADR-tba) once a self-hosted runner with a wired XIAO is available.
+
+## Phase 2: Operational hardening — completed in this slice
+
+- [x] `Credentials` dataclass + optional `PI_KEY` public-key SSH path in `_ssh_client.connect()`, `deploy.py`, and `verify_*.py`.
+- [x] `_pi_targets.resolve_target` removes all hard-coded LAN IPs from `scripts/`. YAML→env→fallback precedence with full unit-test coverage.
+- [x] Coverage gate extended to `scripts/_pi_creds`, `_pi_targets`, `_ssh_client`, `_mqtt_client` (≥ 85 %; currently 99 %).
 
 ## Phase 2: Network Module Testing
 

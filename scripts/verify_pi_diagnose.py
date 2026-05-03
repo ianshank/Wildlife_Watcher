@@ -8,12 +8,14 @@ from __future__ import annotations
 import logging
 import sys
 
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
 from _ssh_client import build_ssh_client, connect
 
 log = logging.getLogger("verify_pi_diagnose")
 
-HOST, USER, PASS = _load_creds()
+_creds = _load_creds()
+HOST, USER, PASS = _creds.host, _creds.user, _creds.password
+PI_KEY = _creds.key_path
 
 _KIOSK_CONFIG_PATHS = (
     "/etc/wildlife-kiosk/config.yaml "
@@ -96,7 +98,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     client = build_ssh_client()
     try:
-        connect(client, HOST, USER, PASS)
+        connect(client, HOST, USER, PASS, key_filename=PI_KEY)
     except Exception as exc:
         print(f"FAILED: SSH connect failed: {exc}")
         client.close()

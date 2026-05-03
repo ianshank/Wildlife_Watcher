@@ -59,18 +59,19 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 
 | Module | Responsibility |
 | --- | --- |
-| `net_wifi.*` | WiFi connection ownership and reconnection policy. |
+| `net_wifi.*` | WiFi connection ownership and reconnection policy. `net_wifi.h` exposes `constexpr next_wifi_backoff_ms(attempt, base, max)` — a pure overflow-safe capped-exponential helper used by reconnect callers and covered by native Unity tests. |
 | `net_mqtt.*` | Topic formatting and publish lifecycle. |
 | `net_mqtt_format.h` | Pure thumb-payload budget and frame-topic formatting helpers used by `net_mqtt.*` and covered by native Unity tests. |
 | `sscma_io.*` | Grove Vision AI V2 polling and detection shaping. |
 | `sscma_decode.h` | Pure detection-decode helpers (class-id mask, score→confidence, max-score tracking, thumb-publish gate) used by `main.cpp` and covered by native Unity tests. |
-| `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. `PowerManager::begin()` classifies the boot wake source; `last_wake_source()` exposes it for logging and policy decisions. |
-| `power_policy.h` | Pure sleep-decision policy, `WakeSource` enum (`kColdBoot`, `kPirExt0`, `kTimer`, `kUnknown`), and `classify_wake_source()` function used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
+| `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. `PowerManager::begin()` classifies the boot wake source and records the boot-grace deadline; `maybe_sleep()` short-circuits while inside the grace window so the detection loop captures at least one frame after a PIR wake. `last_wake_source()` exposes the wake cause for logging and policy. |
+| `power_policy.h` | Pure sleep-decision policy, `WakeSource` enum (`kColdBoot`, `kPirExt0`, `kTimer`, `kUnknown`), `classify_wake_source()`, and `should_grant_boot_grace(now_ms, grace_until_ms)` (wrap-safe via uint32 subtraction) — used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
 | `pir_event.h` | `constexpr should_accept_pir_edge()` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; zero Arduino dependencies. |
+| `main.cpp` | Top-level Arduino entry. Owns the PIR ISR (`IRAM_ATTR pir_isr()`) and namespace-scope `volatile` state (`g_last_pir_micros`, `g_pir_pending`); attaches the ISR after `power_manager.begin()` gated by `kPirWakeEnabled` and consumes the pending flag inside `noInterrupts()`/`interrupts()` brackets in `loop()`. |
 | `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
-Native test coverage includes **39 Unity tests** covering: class_names lookup, MQTT thumb-budget and topic-format helpers (null-arg, truncation, zero-budget edge cases), runtime config-constant exposure, PowerManager stubs + `last_wake_source()` accessor, pure sleep-decision policy, `classify_wake_source()` with all four enum variants, `should_accept_pir_edge()` (first edge, within debounce window, exact boundary, uint32 wraparound), PIR and wake-boot-grace config constants, and SSCMA detection-decode helpers. Tests use `power_mgr_stubs.cpp` to remain hardware-independent in the native environment.
+Native test coverage includes **52 Unity tests** covering: class_names lookup; MQTT thumb-budget and topic-format helpers (null-arg, truncation, zero-budget); per-channel topic-name shape (status / detections / thumbs prefix); runtime config-constant exposure; PowerManager stubs + `last_wake_source()` accessor; pure sleep-decision policy; `classify_wake_source()` (all four enum variants); `should_accept_pir_edge()` (first edge, within window, exact boundary, uint32 wrap); `should_grant_boot_grace()` (within window, boundary, after, wrap-safe); `next_wifi_backoff_ms()` (attempt 0/1/N/saturation/huge-attempt); `class_id_from_target` (low-byte mask, high-byte ignore); `track_max_score` (running max + uint16 saturation); PIR + wake-boot-grace config constants; SSCMA detection-decode helpers. Tests use `power_mgr_stubs.cpp` to remain hardware-independent in the native environment.
 
 The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
 
@@ -116,14 +117,19 @@ Under `scripts/` the repo carries a Python operational-tooling layer that runs f
 
 | Script | Responsibility |
 | --- | --- |
-| `_pi_creds.py` | Single source of truth for Pi SSH credentials (`PI_HOST`/`PI_USER`/`PI_PASS` env vars). All other scripts import it; no passwords live in source. |
-| `verify_pi_live.py` | Pings the Pi, asserts mosquitto is listening, and watches `wildlife/status/+` for camera heartbeats. |
+| `_pi_creds.py` | `Credentials` frozen dataclass + legacy `load()` 3-tuple. Reads `PI_PASS` and optional `PI_KEY` env vars; delegates host/user resolution to `_pi_targets.resolve_target("display")` so no LAN literal lives in source. |
+| `_pi_targets.py` | Pure `resolve_target(name, *, env, file_loader, fallback)` helper. Resolution precedence: YAML file (`PI_TARGETS_FILE`, default `~/.wildlife/pi-targets.yaml`) → env (`CAMERA_IP`/`CAMERA_USER`, `PI_HOST`/`PI_USER`) → caller-supplied `Target(host, user)` fallback. Raises `RuntimeError` when no source resolves. File I/O is injected so the resolver is fully unit-testable. |
+| `_ssh_client.py` | `build_ssh_client()` (host-key policy via `PI_HOST_KEY_POLICY` / `PI_KNOWN_HOSTS`) + `connect()` accepting either `password=` or `key_filename=` (or both, for encrypted keys). Raises `ValueError` if neither is given. |
+| `_mqtt_client.py` | Thin `paho-mqtt` wrapper used by `verify_e2e_journey.py` for retained / clean-session publishes. |
+| `verify_pi_live.py` | Pings the camera (resolved via `_pi_targets`), asserts mosquitto is listening, and watches `wildlife/status/+` for camera heartbeats. |
 | `verify_pi_diagnose.py` / `verify_pi_deepdive.py` | Triage helpers: inspect mosquitto/kiosk/SSH state and pull recent journals when the live check is unhappy. |
 | `verify_pi_roundtrip.py` | Synthetic publish + remote `sqlite3` read-back to prove the kiosk consumed and persisted a detection. |
 | `verify_e2e_journey.py` | Four-stage live end-to-end validator: real camera heartbeat → synthetic-camera publish (detection + retained base64 thumbnail) → SSH-side row equality check on `observations.db` → byte-identity comparison of the stored `thumb_jpeg` BLOB. Exit 0 only on full pass. |
 | `read_xiao_serial.py` | Timed USB-serial capture from the XIAO (port/baud/duration overridable via `XIAO_PORT`/`XIAO_BAUD`/`XIAO_READ_SECS`). |
 
-This layer is intentionally outside the unit-test perimeter: it touches a real Pi over SSH and a real broker over MQTT, and it is the post-deploy gate that exercises the same publish path the camera takes (impersonating a node) so any kiosk-side parsing / persistence / thumbnail-attachment regression is caught before sign-off.
+The four reusable helpers (`_pi_creds`, `_pi_targets`, `_ssh_client`, `_mqtt_client`) are now under the **85 % branch-coverage gate** alongside the kiosk module; the `verify_*.py` scripts and `read_xiao_serial.py` are explicitly omitted because they require live Pi/USB hardware.
+
+This layer is intentionally outside the live-traffic test perimeter: it touches a real Pi over SSH and a real broker over MQTT, and it is the post-deploy gate that exercises the same publish path the camera takes (impersonating a node) so any kiosk-side parsing / persistence / thumbnail-attachment regression is caught before sign-off.
 
 ## Operational Constraints
 
