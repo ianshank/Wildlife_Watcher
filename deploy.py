@@ -18,6 +18,7 @@ PowerShell example:
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -81,10 +82,13 @@ def main() -> int:
 
     print("Running installer...")
     # The installer skips its interactive prompt when BROKER_PASS is set.
+    # shlex.quote is critical here: repr() / !r is not a valid shell quote
+    # (it would let bash $-expand or backtick-execute values containing
+    # single quotes mixed with metacharacters).
     cmd = (
-        f"cd {remote_dir} && chmod +x install.sh && "
-        f"export BROKER_USER={broker_user!r} && "
-        f"export BROKER_PASS={broker_pass!r} && "
+        f"cd {shlex.quote(remote_dir)} && chmod +x install.sh && "
+        f"export BROKER_USER={shlex.quote(broker_user)} && "
+        f"export BROKER_PASS={shlex.quote(broker_pass)} && "
         f"sudo -S -E bash install.sh"
     )
     stdin, stdout, stderr = ssh.exec_command(cmd, get_pty=True)

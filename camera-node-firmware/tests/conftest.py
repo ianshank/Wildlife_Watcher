@@ -17,6 +17,22 @@ from pathlib import Path
 import paho.mqtt.client as mqtt  # pyright: ignore[reportMissingTypeStubs, reportMissingImports]
 import pytest
 
+
+def _make_client(client_id: str) -> mqtt.Client:
+    """Construct a paho.mqtt.Client compatible with both 1.6.x and 2.x.
+
+    paho-mqtt 2.0 added a required ``CallbackAPIVersion`` positional arg.
+    We try the v2 signature first and fall back to the v1 one.
+    """
+    cb_api = getattr(mqtt, "CallbackAPIVersion", None)
+    if cb_api is not None:
+        try:
+            return mqtt.Client(cb_api.VERSION1, client_id=client_id, clean_session=True)
+        except TypeError:
+            pass
+    return mqtt.Client(client_id=client_id, clean_session=True)
+
+
 # ---------------------------------------------------------------------------
 # Configuration (overridable via env vars)
 # ---------------------------------------------------------------------------
@@ -155,7 +171,7 @@ def mqtt_client(flash_firmware):
     ) -> None:
         msg_queue.put(msg)
 
-    client = mqtt.Client(client_id="pytest-harness", clean_session=True)
+    client = _make_client("pytest-harness")
     client.on_connect = on_connect
     client.on_message = on_message
 

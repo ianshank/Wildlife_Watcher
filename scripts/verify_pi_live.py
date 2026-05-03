@@ -4,12 +4,16 @@ node is publishing at all, plus connectivity check to 192.168.4.30.
 
 from __future__ import annotations
 
+import os
+import shlex
 import sys
 
 import paramiko  # type: ignore
 from _pi_creds import load as _load_creds
 
 HOST, USER, PASS = _load_creds()
+MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
+MQTT_PASS = os.environ.get("MQTT_PASS", "")
 
 
 def run(client, label, cmd, timeout=60):
@@ -24,15 +28,25 @@ def run(client, label, cmd, timeout=60):
 
 
 def main() -> int:
+    if not MQTT_PASS:
+        sys.stderr.write(
+            "error: MQTT_PASS environment variable is required "
+            "(broker has allow_anonymous false).\n"
+        )
+        return 2
+
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(HOST, username=USER, password=PASS, timeout=10)
     try:
         run(client, "ping-cam",
             "ping -c 3 -W 2 192.168.4.30", timeout=20)
-        run(client, "live-30s-all",
-            "timeout 30 mosquitto_sub -h 127.0.0.1 -u wildlife -P wildlife123 "
-            "-t 'wildlife/#' -v 2>&1 || true", timeout=45)
+        sub_cmd = (
+            f"timeout 30 mosquitto_sub -h 127.0.0.1 "
+            f"-u {shlex.quote(MQTT_USER)} -P {shlex.quote(MQTT_PASS)} "
+            f"-t 'wildlife/#' -v 2>&1 || true"
+        )
+        run(client, "live-30s-all", sub_cmd, timeout=45)
     finally:
         client.close()
     return 0

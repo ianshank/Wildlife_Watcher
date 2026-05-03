@@ -4,6 +4,7 @@ Python kiosk (the systemd unit is a one-shot 'readiness check').
 
 from __future__ import annotations
 
+import shlex
 import sys
 
 import paramiko  # type: ignore
@@ -17,7 +18,7 @@ def shell(client, label, cmd, timeout=20):
     chan = client.get_transport().open_session()
     chan.get_pty()
     chan.settimeout(timeout)
-    chan.exec_command(f"sudo -S -p '' bash -c {bash_quote(cmd)}")
+    chan.exec_command(f"sudo -S -p '' bash -c {shlex.quote(cmd)}")
     chan.send(PASS + "\n")
     out_chunks = []
     while True:
@@ -30,10 +31,6 @@ def shell(client, label, cmd, timeout=20):
         out_chunks.append(chan.recv(65536).decode("utf-8", "replace"))
     print("".join(out_chunks).rstrip())
     print(f"[rc={rc}]")
-
-
-def bash_quote(s: str) -> str:
-    return "'" + s.replace("'", "'\\''") + "'"
 
 
 def plain(client, label, cmd, timeout=20):

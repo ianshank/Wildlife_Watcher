@@ -41,6 +41,8 @@ import base64
 import json
 import os
 import secrets
+import shlex
+import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -224,9 +226,8 @@ def _sudo_exec(cli: paramiko.SSHClient, cmd: str, sudo_pw: str,
     chan = cli.get_transport().open_session()  # type: ignore[union-attr]
     chan.get_pty()
     chan.settimeout(timeout)
-    # Use a here-doc-style single quoted string and bash -c to support pipes.
-    safe = cmd.replace("'", "'\"'\"'")
-    chan.exec_command(f"sudo -S -p '' bash -c '{safe}'")
+    # shlex.quote handles every shell metachar correctly; do NOT hand-roll.
+    chan.exec_command(f"sudo -S -p '' bash -c {shlex.quote(cmd)}")
     chan.send(sudo_pw + "\n")
     out: list[str] = []
     err: list[str] = []
@@ -324,8 +325,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--mqtt-user",
                    default=os.environ.get("MQTT_USER", "wildlife"))
     p.add_argument("--mqtt-pass",
-                   default=os.environ.get("MQTT_PASS", "wildlife123"),
-                   help="broker password (env: MQTT_PASS)")
+                   default=os.environ.get("MQTT_PASS", ""),
+                   help="broker password (env: MQTT_PASS, required)")
     p.add_argument("--camera-node-id", default="test-camera-1",
                    help="node_id of the real XIAO to look for in step 1")
     p.add_argument("--no-camera-check", action="store_true",
@@ -338,6 +339,13 @@ def main(argv: list[str] | None = None) -> int:
 
     pi_host, pi_user, pi_pass = _load_creds()
     broker = args.broker or pi_host
+
+    if not args.mqtt_pass:
+        sys.stderr.write(
+            "error: MQTT broker password is required. "
+            "Set MQTT_PASS env var or pass --mqtt-pass.\n"
+        )
+        return 2
 
     print("=== Wildlife Watcher full-journey validation ===")
     print(f"  Pi host : {pi_host} (user={pi_user})")

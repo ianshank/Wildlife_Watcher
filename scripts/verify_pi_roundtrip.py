@@ -2,10 +2,18 @@
 
 Connects via paramiko (same creds as deploy.py) and runs a sequence of
 read-only diagnostic commands. No remote state is mutated.
+
+The deployed Mosquitto broker has ``allow_anonymous false``, so the
+``mosquitto_sub`` checks below need credentials. Set ``MQTT_USER`` and
+``MQTT_PASS`` in the environment before running. If ``MQTT_PASS`` is
+unset, the broker-traffic checks are skipped (with a clear note) so the
+non-broker diagnostics still run.
 """
 
 from __future__ import annotations
 
+import os
+import shlex
 import sys
 from collections.abc import Iterable
 
@@ -13,6 +21,23 @@ import paramiko  # type: ignore
 from _pi_creds import load as _load_creds
 
 HOST, USER, PASS = _load_creds()
+MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
+MQTT_PASS = os.environ.get("MQTT_PASS", "")
+
+
+def _sub(topic: str, count: int, secs: int) -> str:
+    if not MQTT_PASS:
+        return (
+            f"echo '(skipped: MQTT_PASS not set; broker requires auth, "
+            f"would have run mosquitto_sub -t {topic})'"
+        )
+    auth = f"-u {shlex.quote(MQTT_USER)} -P {shlex.quote(MQTT_PASS)}"
+    return (
+        f"timeout {secs} mosquitto_sub -h 127.0.0.1 {auth} "
+        f"-t {shlex.quote(topic)} -C {count} -v 2>&1 "
+        f"|| echo '(no messages on {topic} within {secs}s)'"
+    )
+
 
 # Each entry is (label, command, timeout_seconds). Commands are kept read-only.
 CHECKS: list[tuple[str, str, int]] = [
@@ -20,9 +45,9 @@ CHECKS: list[tuple[str, str, int]] = [
     ("mosquitto-svc",  "systemctl is-active mosquitto && systemctl --no-pager -l status mosquitto | head -n 12", 10),
     ("mosquitto-port", "ss -ltn | grep -E ':1883|:8883' || echo 'no listener on 1883/8883'", 10),
     ("kiosk-svc",      "systemctl is-active wildlife-kiosk.service 2>/dev/null || echo 'kiosk service inactive/missing'", 10),
-    ("recent-status",  "timeout 6 mosquitto_sub -h 127.0.0.1 -t 'wildlife/status/+' -C 5 -v 2>&1 || echo '(no status messages within 6s)'", 15),
-    ("recent-detect",  "timeout 8 mosquitto_sub -h 127.0.0.1 -t 'wildlife/detections/+' -C 3 -v 2>&1 || echo '(no detections within 8s)'", 15),
-    ("recent-thumbs",  "timeout 8 mosquitto_sub -h 127.0.0.1 -t 'wildlife/thumbs/+/+' -C 1 -v 2>&1 | head -c 300; echo", 15),
+    ("recent-status",  _sub("wildlife/status/+", 5, 6), 15),
+    ("recent-detect",  _sub("wildlife/detections/+", 3, 8), 15),
+    ("recent-thumbs",  _sub("wildlife/thumbs/+/+", 1, 8) + " | head -c 300; echo", 15),
     ("db-path",        "ls -lh /var/lib/wildlife/observations.db 2>&1 || ls -lh /home/ian/observations.db 2>&1 || find /home /var -maxdepth 4 -name 'observations.db' 2>/dev/null", 15),
     ("db-summary",     "DB=$(ls /var/lib/wildlife/observations.db 2>/dev/null || ls /home/ian/observations.db 2>/dev/null || find /home /var -maxdepth 4 -name observations.db 2>/dev/null | head -n1); "
                        "if [ -n \"$DB\" ]; then sqlite3 \"$DB\" \"SELECT COUNT(*) AS rows, "

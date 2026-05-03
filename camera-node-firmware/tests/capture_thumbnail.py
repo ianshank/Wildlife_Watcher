@@ -11,7 +11,19 @@ import time
 
 import paho.mqtt.client as mqtt  # type: ignore # pyright: ignore[reportMissingTypeStubs]
 
-BROKER = os.environ.get("MQTT_BROKER", "192.168.4.30")
+
+def _make_client(client_id: str) -> mqtt.Client:
+    """paho-mqtt 1.6.x / 2.x compatible Client constructor."""
+    cb_api = getattr(mqtt, "CallbackAPIVersion", None)
+    if cb_api is not None:
+        try:
+            return mqtt.Client(cb_api.VERSION1, client_id=client_id, clean_session=True)
+        except TypeError:
+            pass
+    return mqtt.Client(client_id=client_id, clean_session=True)
+
+
+BROKER = os.environ.get("MQTT_BROKER", "127.0.0.1")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 NODE_ID = os.environ.get("NODE_ID", "test-camera-1")
 OUTPUT = sys.argv[1] if len(sys.argv) > 1 else "capture.jpg"
@@ -111,7 +123,7 @@ def on_message(client, userdata, msg):
             print(f"[capture] Got payload but not JPEG ({len(jpeg_bytes)} bytes)")
 
 
-client = mqtt.Client(client_id="capture-tool", clean_session=True)
+client = _make_client("capture-tool")
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(BROKER, PORT, 60)

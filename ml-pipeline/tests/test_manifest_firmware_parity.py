@@ -6,7 +6,6 @@ from pathlib import Path
 
 from wildlife_ml.export.manifest import ExportManifest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIRMWARE_CONFIG_PATH = (
     REPO_ROOT
