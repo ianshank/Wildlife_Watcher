@@ -86,9 +86,21 @@ def test_load_legacy_exits_when_pi_pass_missing(monkeypatch, capsys):
     monkeypatch.setenv("PI_HOST", "10.0.0.99")
     monkeypatch.setenv("PI_USER", "bob")
     monkeypatch.delenv("PI_PASS", raising=False)
+    monkeypatch.delenv("PI_KEY", raising=False)
     monkeypatch.setenv("PI_TARGETS_FILE", "/nonexistent/wildlife-targets.yaml")
     with pytest.raises(SystemExit) as excinfo:
         _pi_creds.load()
     assert excinfo.value.code == 2
     err = capsys.readouterr().err
     assert "PI_PASS" in err
+
+
+def test_load_legacy_allows_key_only(monkeypatch):
+    """PI_KEY without PI_PASS must succeed and return empty password."""
+    monkeypatch.setenv("PI_HOST", "10.0.0.99")
+    monkeypatch.setenv("PI_USER", "bob")
+    monkeypatch.delenv("PI_PASS", raising=False)
+    monkeypatch.setenv("PI_KEY", "/home/bob/.ssh/id_ed25519")
+    monkeypatch.setenv("PI_TARGETS_FILE", "/nonexistent/wildlife-targets.yaml")
+    host, user, pw = _pi_creds.load()
+    assert (host, user, pw) == ("10.0.0.99", "bob", "")

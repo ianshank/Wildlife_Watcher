@@ -94,7 +94,11 @@ def _from_file(
     env: Mapping[str, str],
     file_loader: FileLoader,
 ) -> Target | None:
-    raw_path = env.get("PI_TARGETS_FILE", _DEFAULT_TARGETS_FILE)
+    # ``env.get(..., default)`` would only fall back when the key is absent;
+    # use ``or`` so an empty-string ``PI_TARGETS_FILE`` (e.g. a tester
+    # un-setting it via ``$env:PI_TARGETS_FILE = ''``) also drops to the
+    # default path instead of crashing on ``Path('')``.
+    raw_path = env.get("PI_TARGETS_FILE") or _DEFAULT_TARGETS_FILE
     path = Path(raw_path).expanduser()
     parsed = file_loader(path)
     if parsed is None:

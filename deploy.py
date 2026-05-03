@@ -91,6 +91,18 @@ def main() -> int:
     # private keys.
     pi_key = os.environ.get("PI_KEY") or None
 
+    # ``deploy.py`` shells the installer with ``sudo -S`` and pipes the Pi
+    # password into stdin; key-only auth is therefore not sufficient on its
+    # own. Surface a clear error rather than letting sudo hang forever on a
+    # blank stdin if the operator forgot ``PI_PASS``.
+    if not pi_pass:
+        sys.stderr.write(
+            "error: PI_PASS is required for deploy.py because the installer "
+            "runs `sudo -S` on the Pi. Set PI_PASS even when PI_KEY is "
+            "configured for SSH auth.\n"
+        )
+        return 2
+
     local_dir = Path(__file__).parent / "pi-display-node"
     remote_dir = f"/home/{user}/pi-display-node"
 

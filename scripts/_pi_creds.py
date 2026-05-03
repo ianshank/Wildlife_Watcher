@@ -67,7 +67,7 @@ class Credentials:
             ``RuntimeError`` is raised otherwise.
         """
         e = os.environ if env is None else env
-        target = resolve_target("display", env=dict(e))
+        target = resolve_target("display", env=e)
         key_path = e.get("PI_KEY") or None
         password = e.get("PI_PASS") or None
         if password is None and key_path is None:
@@ -83,17 +83,28 @@ class Credentials:
 
 
 def load() -> tuple[str, str, str]:
-    """Legacy 3-tuple loader. Exits the process if PI_PASS is missing.
+    """Legacy 3-tuple loader.
 
-    New callers should use ``Credentials.load_from_env()``.
+    Returns ``(host, user, password)``. The password is an empty string
+    when ``PI_KEY`` is set but ``PI_PASS`` is not — this lets key-only
+    scripts (e.g. ``verify_pi_*.py``) use ``paramiko``'s ``key_filename``
+    path without exporting a dummy password. The process still exits 2
+    when **neither** ``PI_KEY`` nor ``PI_PASS`` is set.
+
+    New callers should use :meth:`Credentials.load_from_env` and consume
+    ``key_path`` directly. Callers that genuinely need a password (e.g.
+    ``sudo -S`` invocation) must validate it themselves — see
+    ``deploy.py``.
     """
     target = resolve_target("display")
-    pw = os.environ.get("PI_PASS")
-    if not pw:
+    pw = os.environ.get("PI_PASS") or ""
+    key = os.environ.get("PI_KEY") or ""
+    if not pw and not key:
         sys.stderr.write(
-            "error: PI_PASS environment variable is required.\n"
+            "error: PI_PASS or PI_KEY environment variable is required.\n"
             "  PowerShell:  $env:PI_PASS = '<password>'\n"
             "  bash:        export PI_PASS='<password>'\n"
+            "  key auth:    set PI_KEY=<path-to-private-key>\n"
         )
         sys.exit(2)
     return target.host, target.user, pw

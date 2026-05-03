@@ -44,7 +44,7 @@ void IRAM_ATTR pir_isr() {
     }
 }
 
-void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, float fps) {
+void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, float fps, bool pir_pending) {
     StaticJsonDocument<wildlife::kDetectionPayloadBytes> doc;
     char timestamp[32];
     std::snprintf(timestamp, sizeof(timestamp), "%lu", static_cast<unsigned long>(now_ms));
@@ -83,7 +83,11 @@ void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, 
     }
 
     if (!published_any) {
-        power_manager.maybe_sleep(false);
+        // Honour the PIR wake flag even when the class debouncer
+        // suppresses every detection in this frame; otherwise a wake
+        // immediately followed by debounced boxes would re-enter deep
+        // sleep before the boot-grace window expires.
+        power_manager.maybe_sleep(pir_pending);
         return;
     }
 
@@ -160,5 +164,5 @@ void loop() {
         return;
     }
 
-    publish_frame(frame, now_ms, fps);
+    publish_frame(frame, now_ms, fps, pir_pending);
 }
