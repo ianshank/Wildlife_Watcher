@@ -68,4 +68,31 @@ constexpr WakeSource classify_wake_source(std::uint32_t esp_cause) noexcept {
     return WakeSource::kUnknown;
 }
 
+// ---------------------------------------------------------------------------
+// Boot-grace window
+// ---------------------------------------------------------------------------
+//
+// After begin(), the PowerManager records `grace_until_ms = millis() +
+// kWakeBootGraceMs`. While `now_ms` is still inside that window, sleep
+// decisions must short-circuit so the detection loop can capture at least
+// one frame before the node could go back to sleep.
+//
+// All arithmetic is performed on std::uint32_t to match millis(); the
+// uint32 subtraction `(grace_until_ms - now_ms)` wraps in the same direction
+// as the hardware counter, so the comparison is wrap-safe within any
+// half-period of the 32-bit clock (~24.8 days). The grace window must be
+// strictly less than 2^31 ms for this to hold, which is guaranteed by the
+// kWakeBootGraceMs default (500 ms).
+//
+// Pure function: no Arduino dependency, safe for native unit tests.
+constexpr bool should_grant_boot_grace(
+    std::uint32_t now_ms,
+    std::uint32_t grace_until_ms) noexcept {
+    // Wrap-safe: when grace_until_ms < now_ms in unsigned arithmetic, the
+    // subtraction yields a value > 2^31, so we compare against the half-range.
+    const std::uint32_t remaining = grace_until_ms - now_ms;
+    constexpr std::uint32_t kHalfRange = 0x80000000U;
+    return remaining != 0U && remaining < kHalfRange;
+}
+
 }  // namespace wildlife

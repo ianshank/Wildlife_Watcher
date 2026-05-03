@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "wildlife/power_policy.h"
 
 namespace wildlife {
@@ -16,6 +18,7 @@ class PowerManager {
 
   private:
     WakeSource wake_source_ = WakeSource::kColdBoot;
+    std::uint32_t boot_grace_until_ms_ = 0U;
 };
 
 }  // namespace wildlife

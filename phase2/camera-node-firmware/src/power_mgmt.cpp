@@ -38,10 +38,18 @@ void PowerManager::begin() {
     if (kPirWakeEnabled) {
         pinMode(kPirPin, INPUT);
     }
+
+    // Record the boot-grace deadline so the first call to maybe_sleep() after
+    // a PIR-triggered wake stays awake long enough to capture a frame.
+    boot_grace_until_ms_ = static_cast<std::uint32_t>(millis()) + kWakeBootGraceMs;
 }
 
 void PowerManager::maybe_sleep(bool saw_activity) {
 #if defined(ARDUINO_ARCH_ESP32)
+    if (should_grant_boot_grace(static_cast<std::uint32_t>(millis()),
+                                boot_grace_until_ms_)) {
+        return;
+    }
     const PowerInputs inputs{
         kPirWakeEnabled,
         saw_activity,

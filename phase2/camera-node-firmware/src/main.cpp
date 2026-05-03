@@ -7,6 +7,7 @@
 #include "wildlife/fps_meter.h"
 #include "wildlife/net_mqtt.h"
 #include "wildlife/net_wifi.h"
+#include "wildlife/pir_event.h"
 #include "wildlife/power_mgmt.h"
 #include "wildlife/sscma_decode.h"
 #include "wildlife/sscma_io.h"
@@ -26,6 +27,22 @@ wildlife::PowerManager power_manager;
 wildlife::FpsMeter fps_meter;
 std::uint32_t last_heartbeat_ms = 0;
 std::uint32_t frame_counter = 0;
+
+// PIR ISR state. Both variables are written from interrupt context and read
+// from loop(), so they must be `volatile`. The micros() timestamp of the
+// last accepted edge is debounced via wildlife::should_accept_pir_edge() to
+// suppress vibration noise (see config.h kPirDebounceMs).
+volatile std::uint32_t g_last_pir_micros = 0;
+volatile bool g_pir_pending = false;
+
+void IRAM_ATTR pir_isr() {
+    const std::uint32_t now_us = micros();
+    const std::uint32_t debounce_us = wildlife::kPirDebounceMs * 1000U;
+    if (wildlife::should_accept_pir_edge(g_last_pir_micros, now_us, debounce_us)) {
+        g_last_pir_micros = now_us;
+        g_pir_pending = true;
+    }
+}
 
 void publish_frame(const wildlife::DetectionFrame& frame, std::uint32_t now_ms, float fps) {
     StaticJsonDocument<wildlife::kDetectionPayloadBytes> doc;
@@ -95,6 +112,13 @@ void setup() {
     mqtt_publisher.ensure_connected();
     power_manager.begin();
 
+    // Attach the PIR ISR after the PowerManager has configured kPirPin as
+    // INPUT in begin(). Gated by kPirWakeEnabled so the firmware can be
+    // built without a PIR sensor wired up.
+    if (wildlife::kPirWakeEnabled) {
+        attachInterrupt(digitalPinToInterrupt(wildlife::kPirPin), pir_isr, RISING);
+    }
+
     last_heartbeat_ms = millis();
     const String ip = wifi_link.local_ip();
     mqtt_publisher.publish_status("online", ip.c_str(), last_heartbeat_ms, true);
@@ -114,15 +138,25 @@ void loop() {
     }
 
     wildlife::DetectionFrame frame;
+    // Consume the PIR pending flag before calling maybe_sleep() so a
+    // motion edge that occurred since the last loop forces a stay-awake
+    // decision. noInterrupts/interrupts brackets keep the read-and-clear
+    // atomic against the ISR.
+    bool pir_pending;
+    noInterrupts();
+    pir_pending = g_pir_pending;
+    g_pir_pending = false;
+    interrupts();
+
     if (!sensor.poll(&frame)) {
         delay(wildlife::kPollIdleDelayMs);
-        power_manager.maybe_sleep(false);
+        power_manager.maybe_sleep(pir_pending);
         return;
     }
 
     const float fps = fps_meter.tick(now_ms);
     if (frame.boxes.empty()) {
-        power_manager.maybe_sleep(false);
+        power_manager.maybe_sleep(pir_pending);
         return;
     }
 

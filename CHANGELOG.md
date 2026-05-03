@@ -2,7 +2,37 @@
 
 All notable changes to this workspace-ready repo slice are documented in this file.
 
-## [Unreleased] — Phase 2 PIR Wake-Source Classification & Type Safety
+## [Unreleased] — Phase 2 hardware wiring & ops hardening
+
+### Added
+
+- **`phase2/camera-node-firmware/src/main.cpp`** — `IRAM_ATTR pir_isr()` interrupt handler with namespace-scope `volatile` state (`g_last_pir_micros`, `g_pir_pending`); `attachInterrupt(digitalPinToInterrupt(kPirPin), pir_isr, RISING)` wired in `setup()` after `power_manager.begin()` and gated by `kPirWakeEnabled`. The `loop()` consumes the pending flag inside `noInterrupts()`/`interrupts()` brackets so a motion edge since the last loop forces a stay-awake decision.
+- **`phase2/camera-node-firmware/include/wildlife/power_policy.h`** — new pure `constexpr should_grant_boot_grace(now_ms, grace_until_ms)` helper using wrap-safe `uint32` subtraction (~24.8-day half-period); zero Arduino dependencies.
+- **`phase2/camera-node-firmware/src/power_mgmt.cpp` / `include/.../power_mgmt.h`** — `PowerManager::begin()` records `boot_grace_until_ms_ = millis() + kWakeBootGraceMs`; `maybe_sleep()` short-circuits while `should_grant_boot_grace(now, deadline)` is true so the detection loop captures at least one frame after a PIR wake.
+- **`phase2/camera-node-firmware/include/wildlife/net_wifi.h`** — pure `constexpr next_wifi_backoff_ms(attempt, base_ms, max_ms)` capped-exponential WiFi reconnect helper, overflow-safe via 64-bit intermediate, native-testable. Backed by new `WILDLIFE_WIFI_BACKOFF_BASE_MS` / `WILDLIFE_WIFI_BACKOFF_MAX_MS` config tunables (with `static_assert` invariants).
+- **`scripts/_pi_creds.py`** — `Credentials` `@dataclass(frozen=True)` with `Credentials.load_from_env()` and `as_legacy_tuple()` shim. New optional `PI_KEY` env var enables public-key SSH auth alongside the legacy password fallback. Host/user resolution is now delegated to `_pi_targets.resolve_target("display")` so the loader holds **no literal LAN IPs**.
+- **`scripts/_pi_targets.py`** — pure `resolve_target(name, *, env, file_loader, fallback)` with precedence YAML file (`PI_TARGETS_FILE`, default `~/.wildlife/pi-targets.yaml`) → env vars (`CAMERA_IP`/`CAMERA_USER`, `PI_HOST`/`PI_USER`) → caller-supplied fallback. Replaces hard-coded LAN IPs in verify scripts.
+- **`pi-display-node/tests/test_pi_creds.py`** — 9 new cases over `Credentials.load_from_env` / `as_legacy_tuple` / legacy `load()` covering target-resolution failure, key-only, password-only, both-set, neither-set, and `SystemExit(2)` on missing `PI_PASS`.
+- **`pi-display-node/tests/test_pi_targets.py`** — 14 cases over in-memory env + injected `file_loader`: yaml-wins, env fallback, default user, explicit fallback, no-source RuntimeError, malformed-entry fall-through, unknown-name RuntimeError, default loader on missing file, real-YAML round-trip, empty YAML returns None, non-mapping top-level raises ValueError, list-form `targets:` falls through, scalar entry falls through, explicit-user honoured.
+- **`pi-display-node/tests/test_ssh_client.py`** — 4 new cases for the `connect()` auth matrix: key-only, password-only (legacy), key+password (encrypted-key flow), and missing-both-raises.
+- **52 Unity native tests** (up from 39): 4 new `should_grant_boot_grace` cases (within / boundary / after / wrap-safe), 3 per-channel topic-shape cases, 4 `next_wifi_backoff_ms` cases (attempt 0/1/N/saturation), 2 score-edge cases (`class_id_from_target` high-byte ignore, `track_max_score` saturation at uint16 max).
+
+### Changed
+
+- **`scripts/_ssh_client.py` `connect()`** — kwarg-additive: new `key_filename: str | None = None`, `password` becomes optional. Key-present path enables `allow_agent=True` / `look_for_keys=True`; password-only keeps legacy safe defaults. Raises `ValueError` when both are `None`. All existing callers continue to work unchanged via the legacy positional `password` arg.
+- **`deploy.py`** — threads `PI_KEY` env through `paramiko.SSHClient.connect()`. Default unset path keeps existing password-only flow byte-for-byte.
+- **`scripts/verify_pi_live.py`** — replaces literal `192.168.4.30` with `_pi_targets.resolve_target("camera")`; **no literal fallback** — misconfiguration surfaces as `RuntimeError` at import time.
+- **`pyproject.toml`** — `[tool.coverage.run] source` extended to include `scripts/` (with `omit` for `verify_*.py`, `deploy.py`, `read_xiao_serial.py` which require live hardware). New helpers (`_pi_creds`, `_pi_targets`, `_mqtt_client`, `_ssh_client`) are now under the 85 % gate.
+- **`.agents/harness.toml`** — harness `test` task adds `--cov=scripts` so the orchestrator-driven gate matches `pyproject.toml`.
+- **`.gitignore`** — adds `pi-targets.yaml` and `.wildlife/` so a project-local copy of the targets file is never committed.
+
+### Fixed
+
+- Removed all remaining hard-coded LAN IPs (`192.168.4.21` × 3 in `_pi_creds.py`, `192.168.4.30` fallback in `verify_pi_live.py`). Targets now flow exclusively through `_pi_targets.resolve_target` with the documented YAML→env→fallback precedence.
+
+---
+
+## [Previous] — Phase 2 PIR Wake-Source Classification & Type Safety
 
 ### Added
 

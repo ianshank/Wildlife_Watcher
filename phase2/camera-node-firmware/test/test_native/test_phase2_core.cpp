@@ -10,6 +10,7 @@
 #include "wildlife/debounce.h"
 #include "wildlife/fps_meter.h"
 #include "wildlife/net_mqtt_format.h"
+#include "wildlife/net_wifi.h"
 #include "wildlife/pir_event.h"
 #include "wildlife/power_mgmt.h"
 #include "wildlife/power_policy.h"
@@ -396,6 +397,111 @@ void test_pir_tunable_constants_are_nonzero() {
     TEST_ASSERT_GREATER_THAN_UINT32(0U, static_cast<unsigned int>(wildlife::kWakeBootGraceMs));
 }
 
+// ---------------------------------------------------------------------------
+// Boot-grace window
+// ---------------------------------------------------------------------------
+
+void test_boot_grace_within_window_grants_grace() {
+    constexpr std::uint32_t kNow = 1000U;
+    constexpr std::uint32_t kGraceUntil = kNow + 100U;
+    static_assert(wildlife::should_grant_boot_grace(kNow, kGraceUntil),
+                  "Within-window must grant grace");
+    TEST_ASSERT_TRUE(wildlife::should_grant_boot_grace(kNow, kGraceUntil));
+}
+
+void test_boot_grace_at_boundary_does_not_grant_grace() {
+    // Exactly at the deadline: remaining == 0, must NOT grant.
+    constexpr std::uint32_t kNow = 1000U;
+    constexpr std::uint32_t kGraceUntil = kNow;
+    TEST_ASSERT_FALSE(wildlife::should_grant_boot_grace(kNow, kGraceUntil));
+}
+
+void test_boot_grace_after_window_does_not_grant_grace() {
+    constexpr std::uint32_t kGraceUntil = 1000U;
+    constexpr std::uint32_t kNow = kGraceUntil + 50U;
+    TEST_ASSERT_FALSE(wildlife::should_grant_boot_grace(kNow, kGraceUntil));
+}
+
+void test_boot_grace_wrap_around_safe() {
+    // millis() wraps near uint32_t max; grace_until_ms wrapped past zero.
+    constexpr std::uint32_t kNow = 0xFFFFFF00U;
+    // 0xFFFFFF00 + 0x200 wraps to 0x00000100 (>now in unsigned arithmetic
+    // but in same direction as the hardware counter -> still in window).
+    constexpr std::uint32_t kGraceUntil = kNow + 0x200U;
+    static_assert(kGraceUntil < kNow, "grace_until must wrap for the test");
+    TEST_ASSERT_TRUE(wildlife::should_grant_boot_grace(kNow, kGraceUntil));
+}
+
+// ---------------------------------------------------------------------------
+// Topic-name shape (per-channel)
+// ---------------------------------------------------------------------------
+
+void test_build_topic_names_status_channel_shape() {
+    constexpr const char kNodeId[] = "node-x";
+    const auto topics = wildlife::build_topic_names(kNodeId);
+    const auto expected = std::string(wildlife::kStatusTopicRoot) + "/" + kNodeId;
+    TEST_ASSERT_EQUAL_STRING(expected.c_str(), topics.status.data());
+}
+
+void test_build_topic_names_detection_channel_shape() {
+    constexpr const char kNodeId[] = "node-x";
+    const auto topics = wildlife::build_topic_names(kNodeId);
+    const auto expected = std::string(wildlife::kDetectionTopicRoot) + "/" + kNodeId;
+    TEST_ASSERT_EQUAL_STRING(expected.c_str(), topics.detections.data());
+}
+
+void test_build_topic_names_thumbs_prefix_shape() {
+    constexpr const char kNodeId[] = "node-x";
+    const auto topics = wildlife::build_topic_names(kNodeId);
+    const auto expected = std::string(wildlife::kThumbsTopicRoot) + "/" + kNodeId;
+    TEST_ASSERT_EQUAL_STRING(expected.c_str(), topics.thumbs_prefix.data());
+}
+
+// ---------------------------------------------------------------------------
+// WiFi reconnect backoff
+// ---------------------------------------------------------------------------
+
+void test_wifi_backoff_attempt_zero_returns_base() {
+    static_assert(wildlife::next_wifi_backoff_ms(0U, 500U, 30000U) == 500U,
+                  "attempt 0 must return base");
+    TEST_ASSERT_EQUAL_UINT32(500U, wildlife::next_wifi_backoff_ms(0U, 500U, 30000U));
+}
+
+void test_wifi_backoff_attempt_one_doubles_base() {
+    TEST_ASSERT_EQUAL_UINT32(1000U, wildlife::next_wifi_backoff_ms(1U, 500U, 30000U));
+}
+
+void test_wifi_backoff_grows_until_cap() {
+    // 500 * 2^5 = 16000; under cap.
+    TEST_ASSERT_EQUAL_UINT32(16000U, wildlife::next_wifi_backoff_ms(5U, 500U, 30000U));
+    // 500 * 2^6 = 32000; saturates at 30000.
+    TEST_ASSERT_EQUAL_UINT32(30000U, wildlife::next_wifi_backoff_ms(6U, 500U, 30000U));
+}
+
+void test_wifi_backoff_saturates_at_huge_attempt() {
+    // attempt >= 32 short-circuits to max_ms; well-defined behaviour.
+    TEST_ASSERT_EQUAL_UINT32(30000U, wildlife::next_wifi_backoff_ms(64U, 500U, 30000U));
+    TEST_ASSERT_EQUAL_UINT32(30000U, wildlife::next_wifi_backoff_ms(1000U, 500U, 30000U));
+}
+
+// ---------------------------------------------------------------------------
+// Score / target edge cases
+// ---------------------------------------------------------------------------
+
+void test_class_id_from_target_ignores_high_byte() {
+    // Mid-range class_id with stray high-byte data must round-trip the low byte.
+    TEST_ASSERT_EQUAL_UINT8(0x05U, wildlife::class_id_from_target(0xAB05U));
+    TEST_ASSERT_EQUAL_UINT8(0x07U, wildlife::class_id_from_target(0x1207U));
+}
+
+void test_track_max_score_saturation_at_uint16_max() {
+    constexpr std::uint16_t kMax = 0xFFFFU;
+    // Already at max: any subsequent value <= max must keep max.
+    TEST_ASSERT_EQUAL_UINT16(kMax, wildlife::track_max_score(kMax, 0U));
+    TEST_ASSERT_EQUAL_UINT16(kMax, wildlife::track_max_score(kMax, kMax));
+    TEST_ASSERT_EQUAL_UINT16(kMax, wildlife::track_max_score(0U, kMax));
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -443,5 +549,22 @@ int main(int argc, char** argv) {
     RUN_TEST(test_pir_edge_wrap_around_safe);
     // PIR tunable constants
     RUN_TEST(test_pir_tunable_constants_are_nonzero);
+    // Boot-grace window
+    RUN_TEST(test_boot_grace_within_window_grants_grace);
+    RUN_TEST(test_boot_grace_at_boundary_does_not_grant_grace);
+    RUN_TEST(test_boot_grace_after_window_does_not_grant_grace);
+    RUN_TEST(test_boot_grace_wrap_around_safe);
+    // Topic-name shape
+    RUN_TEST(test_build_topic_names_status_channel_shape);
+    RUN_TEST(test_build_topic_names_detection_channel_shape);
+    RUN_TEST(test_build_topic_names_thumbs_prefix_shape);
+    // WiFi reconnect backoff
+    RUN_TEST(test_wifi_backoff_attempt_zero_returns_base);
+    RUN_TEST(test_wifi_backoff_attempt_one_doubles_base);
+    RUN_TEST(test_wifi_backoff_grows_until_cap);
+    RUN_TEST(test_wifi_backoff_saturates_at_huge_attempt);
+    // Score / target edge cases
+    RUN_TEST(test_class_id_from_target_ignores_high_byte);
+    RUN_TEST(test_track_max_score_saturation_at_uint16_max);
     return UNITY_END();
 }

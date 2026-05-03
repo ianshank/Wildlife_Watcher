@@ -48,7 +48,16 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["pi-display-node/kiosk"]
+# Cover the kiosk plus the unit-testable script helpers. The verify_pi_*.py
+# operational scripts and deploy.py are excluded because they require a
+# real Pi to exercise; we keep them out of the gate via ``omit``.
+source = ["pi-display-node/kiosk", "scripts"]
+omit = [
+    "scripts/verify_*.py",
+    "scripts/deploy.py",
+    "scripts/read_xiao_serial.py",
+    "deploy.py",
+]
 
 [tool.coverage.report]
 fail_under = 85

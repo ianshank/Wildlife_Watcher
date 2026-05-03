@@ -20,8 +20,8 @@ Expected result:
 
 - Ruff passes on the full lint target set configured by the harness — `pi-display-node/kiosk`, `pi-display-node/tests`, `scripts`, `deploy.py`, `camera-node-firmware/tests`, and `.agents/harness/orchestrator.py`.
 - mypy passes on **24 source files** (kiosk module, tests, `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`).
-- pytest 64/64 passes.
-- Coverage remains at or above 85% (currently 98.87% on the kiosk module).
+- pytest 92/92 passes.
+- Coverage remains at or above 85% (currently **99.01%** across `pi-display-node/kiosk` + the testable `scripts/` helpers `_pi_creds`, `_pi_targets`, `_ssh_client`, `_mqtt_client`).
 
 ## Test 2: Kiosk smoke path
 
@@ -63,7 +63,7 @@ python .agents/harness/orchestrator.py firmware-build-phase2
 Expected result:
 
 - the shipped Phase 1 firmware baseline still builds against the current SSCMA and MQTT library surface
-- **39 Unity native tests pass** (covering class_names, MQTT thumb-budget/topic-format helpers, runtime config-constant exposure, PowerManager stubs + `last_wake_source()` accessor, pure sleep-decision policy, SSCMA detection-decode helpers, `classify_wake_source()` with all enum variants, `should_accept_pir_edge()` with first-edge / within-window / exact-boundary / uint32-wraparound cases, PIR + wake-boot-grace config constants)
+- **52 Unity native tests pass** (class_names; MQTT thumb-budget / topic-format helpers; per-channel topic-shape; runtime config-constant exposure; PowerManager stubs + `last_wake_source()`; pure sleep-decision policy; SSCMA detection-decode helpers; `classify_wake_source()` (all enum variants); `should_accept_pir_edge()` (first-edge / within-window / boundary / uint32 wrap); `should_grant_boot_grace()` (within / boundary / after / wrap-safe); `next_wifi_backoff_ms()` (attempt 0/1/N/saturation/huge-attempt); `class_id_from_target` high-byte ignore; `track_max_score` uint16 saturation; PIR + wake-boot-grace config constants)
 - the hardware build still resolves the modular networking and power-management layers (both `seeed_xiao_esp32s3` and `seeed_xiao_esp32s3_pir` envs)
 
 If PlatformIO is not installed, record that gap explicitly in the PR summary instead of silently skipping it.
@@ -118,8 +118,9 @@ Before opening a PR, verify these reviewer entry points are still accurate:
 Each of those files should agree on three facts:
 
 - the Phase 1 baseline remains the stable deployment path
-- Phase 2 native test count (currently **39**)
+- Phase 2 native test count (currently **52**)
 - mypy scope (currently **24 source files** including `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`)
+- Coverage gate scope (currently `pi-display-node/kiosk` + `scripts/_pi_creds.py` + `scripts/_pi_targets.py` + `scripts/_ssh_client.py` + `scripts/_mqtt_client.py`; `verify_*.py` / `read_xiao_serial.py` / `deploy.py` are explicitly omitted because they require live hardware)
 
 ## Validation Gaps
 
@@ -148,3 +149,72 @@ Expected result (exit code 0):
 - **step4** byte-compares the stored `thumb_jpeg` BLOB against the JPEG sent in step 2 — proves the base64 → MQTT → `ThumbCache.put` (QImage validation) → `Storage.update_thumb` chain is intact.
 
 If step 1 fails but the rest pass, the kiosk pipeline is healthy and the camera node needs investigation (see `05-troubleshooting.md` and `scripts/verify_pi_diagnose.py`). If step 4 fails after step 3 passes, the JPEG is reaching the kiosk but `ThumbCache.put` is rejecting it as an invalid image — common when a model export changes the JPEG framing.
+
+## Test 9: Pi target resolution + SSH key fallback (manual)
+
+Run this when `scripts/_pi_targets.py`, `scripts/_pi_creds.py`, `scripts/_ssh_client.py`, or `deploy.py` change. It does **not** require the camera node — only an SSH-reachable Pi.
+
+### Resolution precedence
+
+```powershell
+# 1. YAML beats env. Create a one-off targets file:
+$tmp = New-TemporaryFile
+@"
+targets:
+  display:
+    host: <pi-ip-from-yaml>
+    user: <pi-user>
+"@ | Set-Content $tmp
+$env:PI_TARGETS_FILE = $tmp.FullName
+$env:PI_HOST = '203.0.113.99'   # bogus on purpose; YAML must win
+$env:PI_PASS = '<pi-ssh-password>'
+.\.venv\Scripts\python.exe -c "from _pi_targets import resolve_target; print(resolve_target('display'))"
+Remove-Item env:PI_TARGETS_FILE, env:PI_HOST, env:PI_PASS
+Remove-Item $tmp
+```
+
+Expected: prints `Target(host='<pi-ip-from-yaml>', user='<pi-user>')`.
+
+```powershell
+# 2. Env beats fallback when YAML is absent.
+$env:PI_HOST = '<pi-ip>'; $env:PI_USER = '<pi-user>'; $env:PI_PASS = '<pw>'
+.\.venv\Scripts\python.exe scripts/verify_pi_live.py   # should ping the env-supplied host
+Remove-Item env:PI_HOST, env:PI_USER, env:PI_PASS
+```
+
+```powershell
+# 3. No source: helper raises RuntimeError, not a silent default.
+.\.venv\Scripts\python.exe -c "from _pi_targets import resolve_target; resolve_target('camera')"
+```
+
+Expected: `RuntimeError: Cannot resolve Pi target 'camera'…` (no LAN literal in the message).
+
+### SSH key auth fallback
+
+```powershell
+# Public-key path: PI_KEY set, PI_PASS unset.
+$env:PI_KEY  = "$HOME\.ssh\id_ed25519"
+$env:PI_HOST = '<pi-ip>'; $env:PI_USER = '<pi-user>'
+.\.venv\Scripts\python.exe scripts/verify_pi_diagnose.py
+Remove-Item env:PI_KEY, env:PI_HOST, env:PI_USER
+```
+
+Expected: SSH connects via `~/.ssh/id_ed25519` (and ssh-agent / `look_for_keys=True`); `paramiko` does **not** prompt for a password.
+
+```powershell
+# Encrypted-key path: both PI_KEY and PI_PASS set; password unlocks the key.
+$env:PI_KEY  = "$HOME\.ssh\id_ed25519_encrypted"
+$env:PI_PASS = '<key-passphrase>'
+$env:PI_HOST = '<pi-ip>'; $env:PI_USER = '<pi-user>'
+.\.venv\Scripts\python.exe deploy.py --dry-run
+Remove-Item env:PI_KEY, env:PI_PASS, env:PI_HOST, env:PI_USER
+```
+
+Expected: `deploy.py` connects with `key_filename + password` and the dry-run rsync plan is printed.
+
+```powershell
+# Neither set: connect() must raise ValueError before any network call.
+.\.venv\Scripts\python.exe -c "from _ssh_client import build_ssh_client, connect; connect(build_ssh_client(), 'h', 'u')"
+```
+
+Expected: `ValueError: connect() requires either key_filename= or password=`.

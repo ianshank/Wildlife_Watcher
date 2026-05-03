@@ -134,11 +134,11 @@ Run the standard checks through the repo harness so local runs and CI stay align
 python .agents/harness/orchestrator.py quality
 python .agents/harness/orchestrator.py lint
 python .agents/harness/orchestrator.py typecheck  # 24 source files (kiosk + tests + scripts + deploy.py + .agents/harness/orchestrator.py)
-python .agents/harness/orchestrator.py test       # 64 tests @ 98.87% branch coverage
+python .agents/harness/orchestrator.py test       # 92 tests @ 99.01% branch coverage
 python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-build-phase2
-python .agents/harness/orchestrator.py firmware-test-native  # 39 Unity tests
+python .agents/harness/orchestrator.py firmware-test-native  # 52 Unity tests
 python .agents/harness/orchestrator.py integration-kiosk-mqtt
 python .agents/harness/orchestrator.py integration-firmware-format
 python .agents/harness/orchestrator.py integration-schema-parity
@@ -155,7 +155,17 @@ PlatformIO-based commands require the `platformio` package to be installed in th
 
 ### Live end-to-end validation (post-deploy)
 
-The `scripts/` directory carries Pi-side operational tooling that runs against the deployed system. All Pi credentials are read from environment variables (`PI_HOST` / `PI_USER` / `PI_PASS`); no secrets live in source. Broker credentials come from `MQTT_USER` / `MQTT_PASS`.
+The `scripts/` directory carries Pi-side operational tooling that runs against the deployed system. All Pi credentials are read from environment variables — no secrets live in source.
+
+| Env var | Required | Purpose |
+| --- | --- | --- |
+| `PI_HOST` / `PI_USER` | optional | Display Pi address + user (defaults: `192.168.4.21`, `ian`). |
+| `PI_PASS` | required unless `PI_KEY` is set | SSH password fallback. |
+| `PI_KEY` | optional (recommended) | Path to a private key for public-key SSH auth; supersedes password-only flow in `deploy.py` and `_ssh_client.connect()`. |
+| `PI_TARGETS_FILE` | optional | YAML file resolving named targets (`camera`, `display`); default `~/.wildlife/pi-targets.yaml`. Schema: `targets: { <name>: { host: <ip>, user: <name> } }`. |
+| `CAMERA_IP` / `CAMERA_USER` | optional | Per-target env override for the `camera` target. |
+| `MQTT_USER` / `MQTT_PASS` | required | Broker credentials. |
+| `PI_HOST_KEY_POLICY` / `PI_KNOWN_HOSTS` | optional | MITM-mitigation knobs for `_ssh_client.build_ssh_client()`.
 
 ```powershell
 $env:PI_PASS   = '<pi-ssh-password>'

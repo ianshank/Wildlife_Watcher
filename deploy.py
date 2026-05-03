@@ -86,6 +86,10 @@ def main() -> int:
     host, user, pi_pass = _load_pi_creds()
     broker_user = os.environ.get("BROKER_USER", "wildlife").strip() or "wildlife"
     broker_pass = _require("BROKER_PASS")
+    # Optional public-key auth: PI_KEY wins over PI_PASS when set, but the
+    # password is still threaded through so paramiko can decrypt encrypted
+    # private keys.
+    pi_key = os.environ.get("PI_KEY") or None
 
     local_dir = Path(__file__).parent / "pi-display-node"
     remote_dir = f"/home/{user}/pi-display-node"
@@ -93,8 +97,25 @@ def main() -> int:
     print(f"Connecting to {user}@{host}...")
     ssh = _build_ssh_client()
     try:
-        ssh.connect(host, username=user, password=pi_pass, timeout=10,
-                    allow_agent=False, look_for_keys=False)
+        if pi_key is not None:
+            ssh.connect(
+                host,
+                username=user,
+                key_filename=pi_key,
+                password=pi_pass,
+                timeout=10,
+                allow_agent=True,
+                look_for_keys=True,
+            )
+        else:
+            ssh.connect(
+                host,
+                username=user,
+                password=pi_pass,
+                timeout=10,
+                allow_agent=False,
+                look_for_keys=False,
+            )
     except Exception as e:
         print(f"SSH failed: {e}")
         return 1

@@ -66,18 +66,44 @@ def connect(
     client: paramiko.SSHClient,
     host: str,
     user: str,
-    password: str,
+    password: str | None = None,
     *,
+    key_filename: str | None = None,
     timeout: int = 10,
     banner_timeout: int = 10,
     auth_timeout: int = 10,
 ) -> None:
     """Convenience wrapper around ``SSHClient.connect`` with sane defaults.
 
-    Always disables agent + key lookup so password-only credentials
-    (which is how the Pi is provisioned today) work predictably across
-    environments.
+    Authentication priority:
+      1. ``key_filename`` (recommended) — public-key auth; agent + on-disk
+         key lookup are enabled so paramiko can decrypt the key from the
+         user's normal places.
+      2. ``password`` — bootstrap fallback for nodes provisioned without a
+         key. Agent + key lookup are disabled so password-only credentials
+         work predictably across environments (matches legacy behaviour).
+
+    Either ``password`` or ``key_filename`` must be provided.
     """
+    if key_filename is None and password is None:
+        raise ValueError(
+            "connect() requires either key_filename= or password=; both are None"
+        )
+
+    if key_filename is not None:
+        client.connect(
+            host,
+            username=user,
+            key_filename=key_filename,
+            password=password,
+            timeout=timeout,
+            banner_timeout=banner_timeout,
+            auth_timeout=auth_timeout,
+            allow_agent=True,
+            look_for_keys=True,
+        )
+        return
+
     client.connect(
         host,
         username=user,
