@@ -107,7 +107,7 @@ def run(client, label: str, command: str, timeout: int) -> int:
     truncated = command[:120] + ("..." if len(command) > 120 else "")
     print(f"\n===== [{label}] $ {truncated}")
     _stdin, stdout, stderr = client.exec_command(command, timeout=timeout, get_pty=False)
-    rc = stdout.channel.recv_exit_status()
+    rc: int = int(stdout.channel.recv_exit_status())
     out = stdout.read().decode("utf-8", errors="replace").rstrip()
     err = stderr.read().decode("utf-8", errors="replace").rstrip()
     if out:

@@ -78,7 +78,7 @@ extend-ignore-names = ["mousePressEvent", "resizeEvent"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests"]
+files = ["pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests", "scripts", "deploy.py"]
 mypy_path = ["typings"]
 check_untyped_defs = true
 exclude = ["^\\.venv/", "^camera-node-firmware/\\.pio/"]

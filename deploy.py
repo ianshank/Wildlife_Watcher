@@ -31,7 +31,7 @@ import shlex
 import sys
 from pathlib import Path
 
-import paramiko  # type: ignore
+import paramiko
 
 # Local import - keeps the env-var loader in one place across the repo.
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
