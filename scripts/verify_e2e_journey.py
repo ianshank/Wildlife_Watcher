@@ -48,7 +48,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-import paramiko  # type: ignore
+import paramiko
 from _mqtt_client import make_client as _make_mqtt_client
 from _pi_creds import load as _load_creds
 from _ssh_client import build_ssh_client
@@ -233,7 +233,7 @@ def _sudo_exec(cli: paramiko.SSHClient, cmd: str, sudo_pw: str,
     chan.settimeout(timeout)
     # shlex.quote handles every shell metachar correctly; do NOT hand-roll.
     chan.exec_command(f"sudo -S -p '' bash -c {shlex.quote(cmd)}")
-    chan.send(sudo_pw + "\n")
+    chan.send((sudo_pw + "\n").encode())
     out: list[str] = []
     err: list[str] = []
     while True:

@@ -25,7 +25,7 @@ Grove Vision AI V2 --I2C-- XIAO ESP32S3 Sense
 | Phase | Status | Scope |
 | ----- | ------ | ----- |
 | 1 | Complete | Pi kiosk, MQTT broker, SQLite storage, XIAO ESP32S3 firmware |
-| 2 | In progress | PIR wake, deep sleep, power budget, reusable firmware modules |
+| 2 | In progress — PIR wake-source classification done | PIR wake, deep sleep, power budget, reusable firmware modules |
 | 3 | Planned | Dataset prep, YOLO export, TFLite int8 + Vela for the Grove Vision AI V2 Ethos-U55 |
 
 ## What's in this package
@@ -133,12 +133,12 @@ Run the standard checks through the repo harness so local runs and CI stay align
 ./setup_and_test.ps1
 python .agents/harness/orchestrator.py quality
 python .agents/harness/orchestrator.py lint
-python .agents/harness/orchestrator.py typecheck  # covers 9 source files (5 kiosk + 4 tests)
-python .agents/harness/orchestrator.py test       # 45 tests @ 98.85% branch coverage
+python .agents/harness/orchestrator.py typecheck  # 24 source files (kiosk + tests + scripts + deploy.py + .agents/harness/orchestrator.py)
+python .agents/harness/orchestrator.py test       # 64 tests @ 98.87% branch coverage
 python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build
 python .agents/harness/orchestrator.py firmware-build-phase2
-python .agents/harness/orchestrator.py firmware-test-native  # 8 Unity tests
+python .agents/harness/orchestrator.py firmware-test-native  # 39 Unity tests
 python .agents/harness/orchestrator.py integration-kiosk-mqtt
 python .agents/harness/orchestrator.py integration-firmware-format
 python .agents/harness/orchestrator.py integration-schema-parity

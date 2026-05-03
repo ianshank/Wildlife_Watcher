@@ -135,7 +135,7 @@ def broker_publisher(embedded_broker):
     _scripts = Path(__file__).resolve().parents[2] / "scripts"
     if str(_scripts) not in sys.path:
         sys.path.insert(0, str(_scripts))
-    from _mqtt_client import make_client  # type: ignore
+    from _mqtt_client import make_client
 
     client = make_client("wildlife-test-publisher")
     client.connect(str(embedded_broker["host"]), int(embedded_broker["port"]), keepalive=30)

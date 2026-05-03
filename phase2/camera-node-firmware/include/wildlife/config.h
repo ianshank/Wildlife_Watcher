@@ -39,6 +39,18 @@
 #define WILDLIFE_DEEP_SLEEP_S 120UL
 #endif
 
+#ifndef WILDLIFE_PIR_DEBOUNCE_MS
+// Minimum milliseconds between accepted PIR edges to suppress vibration noise.
+#define WILDLIFE_PIR_DEBOUNCE_MS 250UL
+#endif
+
+#ifndef WILDLIFE_WAKE_BOOT_GRACE_MS
+// Milliseconds to keep the node awake after a PIR wakeup before re-evaluating
+// the sleep decision, giving the detection loop time to capture at least one
+// frame before the node could go back to sleep.
+#define WILDLIFE_WAKE_BOOT_GRACE_MS 500UL
+#endif
+
 #ifndef WILDLIFE_DETECTION_TOPIC_ROOT
 #define WILDLIFE_DETECTION_TOPIC_ROOT "wildlife/detections"
 #endif
@@ -160,6 +172,10 @@ inline constexpr bool kPirWakeEnabled = WILDLIFE_POWER_MODE == 1;
 inline constexpr std::uint8_t kPirPin = static_cast<std::uint8_t>(WILDLIFE_PIR_PIN);
 inline constexpr std::uint32_t kDeepSleepSeconds =
     static_cast<std::uint32_t>(WILDLIFE_DEEP_SLEEP_S);
+inline constexpr std::uint32_t kPirDebounceMs =
+    static_cast<std::uint32_t>(WILDLIFE_PIR_DEBOUNCE_MS);
+inline constexpr std::uint32_t kWakeBootGraceMs =
+    static_cast<std::uint32_t>(WILDLIFE_WAKE_BOOT_GRACE_MS);
 inline constexpr const char* kDetectionTopicRoot = WILDLIFE_DETECTION_TOPIC_ROOT;
 inline constexpr const char* kStatusTopicRoot = WILDLIFE_STATUS_TOPIC_ROOT;
 inline constexpr const char* kThumbsTopicRoot = WILDLIFE_THUMBS_TOPIC_ROOT;

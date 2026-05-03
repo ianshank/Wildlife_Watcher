@@ -20,7 +20,7 @@ import logging
 import os
 from pathlib import Path
 
-import paramiko  # type: ignore[import-untyped]
+import paramiko
 
 log = logging.getLogger(__name__)
 

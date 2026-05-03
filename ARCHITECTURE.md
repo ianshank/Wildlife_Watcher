@@ -20,8 +20,8 @@ The deployed system captures detections on a Grove Vision AI V2 camera stack, fo
 | --- | --- | --- |
 | Camera node firmware | PlatformIO, Arduino, XIAO ESP32S3 Sense | Bridges SSCMA detections from the Grove Vision AI V2 into MQTT topics and publishes node status. |
 | Display node broker | Mosquitto on Raspberry Pi Zero 2 W | Provides the local MQTT transport and retained status channel. |
-| Kiosk application | Python, PyQt5, SQLite, paho-mqtt | Subscribes to MQTT topics, persists observations, manages thumbnails, and renders the touch UI. Tested via pytest with 98.85% branch coverage. |
-| Phase 2 firmware slice | PlatformIO native and hardware environments | Isolates reusable power-management and networking refactors before they move back into the main firmware tree. Includes 8 Unity native tests for class_names, PowerManager stubs, and publish logic. |
+| Kiosk application | Python, PyQt5, SQLite, paho-mqtt | Subscribes to MQTT topics, persists observations, manages thumbnails, and renders the touch UI. Tested via pytest with 98.87% branch coverage. |
+| Phase 2 firmware slice | PlatformIO native and hardware environments | Isolates reusable power-management and networking refactors before they move back into the main firmware tree. Includes **39 Unity native tests** covering class_names, PowerManager, PIR debounce, wake-source classification, and publish logic. |
 | Phase 3 ML pipeline | Python, numpy, pytest, mypy | Validates dataset prep, export helpers (including ExportManifest dataclass), Vela parsing, and smoke checks for the Ethos-U55 deployment path. Includes 14 tests with hypothesis property testing. |
 
 ## Component View — Display Node
@@ -64,12 +64,13 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `net_mqtt_format.h` | Pure thumb-payload budget and frame-topic formatting helpers used by `net_mqtt.*` and covered by native Unity tests. |
 | `sscma_io.*` | Grove Vision AI V2 polling and detection shaping. |
 | `sscma_decode.h` | Pure detection-decode helpers (class-id mask, score→confidence, max-score tracking, thumb-publish gate) used by `main.cpp` and covered by native Unity tests. |
-| `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. |
-| `power_policy.h` | Pure sleep-decision policy used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
+| `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. `PowerManager::begin()` classifies the boot wake source; `last_wake_source()` exposes it for logging and policy decisions. |
+| `power_policy.h` | Pure sleep-decision policy, `WakeSource` enum (`kColdBoot`, `kPirExt0`, `kTimer`, `kUnknown`), and `classify_wake_source()` function used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
+| `pir_event.h` | `constexpr should_accept_pir_edge()` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; zero Arduino dependencies. |
 | `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
 
-Native test coverage includes 26 Unity tests covering class_names lookup, MQTT thumb-budget and topic-format helpers (including null-arg, truncation, and zero-budget edge cases), runtime config-constant exposure, PowerManager stubs, the pure sleep-decision policy, SSCMA detection-decode helpers, and core publish logic. Tests use `power_mgr_stubs.cpp` to enable testing in native environment without hardware dependencies.
+Native test coverage includes **39 Unity tests** covering: class_names lookup, MQTT thumb-budget and topic-format helpers (null-arg, truncation, zero-budget edge cases), runtime config-constant exposure, PowerManager stubs + `last_wake_source()` accessor, pure sleep-decision policy, `classify_wake_source()` with all four enum variants, `should_accept_pir_edge()` (first edge, within debounce window, exact boundary, uint32 wraparound), PIR and wake-boot-grace config constants, and SSCMA detection-decode helpers. Tests use `power_mgr_stubs.cpp` to remain hardware-independent in the native environment.
 
 The Phase 2 tree is treated as worktree-equivalent isolation. The repo is now Git-backed, but the existing in-repo phase layout remains the active roadmap surface.
 
@@ -126,6 +127,7 @@ This layer is intentionally outside the unit-test perimeter: it touches a real P
 
 ## Operational Constraints
 
-- GitHub repository settings should be aligned so the default branch is `main`; stale `civ` metadata will confuse compare flows, protection rules, and review defaults.
+- GitHub repository settings should be aligned so the default branch is `main`.
 - PlatformIO validation depends on a local `platformio` installation, which is not currently available in this environment.
 - Phase 3 remains an offline training and export path only; deployment still targets the Grove Vision AI V2 Ethos-U55 path and does not introduce a Jetson runtime tier.
+- The mypy typecheck gate now covers **24 source files** (kiosk module, all tests, `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`). Zero type errors are enforced via `warn_unused_ignores = true`.

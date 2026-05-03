@@ -18,10 +18,10 @@ python .agents/harness/orchestrator.py quality
 
 Expected result:
 
-- Ruff passes.
-- mypy passes on 9 source files (5 kiosk sources + 4 test files).
-- pytest passes.
-- coverage remains at or above 85%.
+- Ruff passes on the full lint target set configured by the harness — `pi-display-node/kiosk`, `pi-display-node/tests`, `scripts`, `deploy.py`, `camera-node-firmware/tests`, and `.agents/harness/orchestrator.py`.
+- mypy passes on **24 source files** (kiosk module, tests, `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`).
+- pytest 64/64 passes.
+- Coverage remains at or above 85% (currently 98.87% on the kiosk module).
 
 ## Test 2: Kiosk smoke path
 
@@ -63,7 +63,7 @@ python .agents/harness/orchestrator.py firmware-build-phase2
 Expected result:
 
 - the shipped Phase 1 firmware baseline still builds against the current SSCMA and MQTT library surface
-- native tests pass for reusable helpers and publish-shaping logic (26 Unity tests covering class_names, MQTT thumb-budget/topic-format helpers — including null-arg, truncation, and zero-budget edge cases — runtime config-constant exposure, PowerManager stubs, the pure sleep-decision policy, SSCMA detection-decode helpers, and core publish logic)
+- **39 Unity native tests pass** (covering class_names, MQTT thumb-budget/topic-format helpers, runtime config-constant exposure, PowerManager stubs + `last_wake_source()` accessor, pure sleep-decision policy, SSCMA detection-decode helpers, `classify_wake_source()` with all enum variants, `should_accept_pir_edge()` with first-edge / within-window / exact-boundary / uint32-wraparound cases, PIR + wake-boot-grace config constants)
 - the hardware build still resolves the modular networking and power-management layers (both `seeed_xiao_esp32s3` and `seeed_xiao_esp32s3_pir` envs)
 
 If PlatformIO is not installed, record that gap explicitly in the PR summary instead of silently skipping it.
@@ -82,8 +82,8 @@ python .agents/harness/orchestrator.py ml-pipeline-smoke
 Expected result:
 
 - Ruff passes on the typed `numpy` export path and tests
-- mypy passes on the `ml-pipeline` package
-- pytest passes on the export and augmentation tests (14 tests including ExportManifest validation and hypothesis property tests)
+- mypy passes on 27 ml-pipeline source files (100% coverage)
+- pytest passes on all 57 export and augmentation tests (including hypothesis property tests)
 - the CPU-only ONNX smoke check completes without requiring a Jetson runtime
 
 ## Test 6: Cross-component parity checks
@@ -118,8 +118,8 @@ Before opening a PR, verify these reviewer entry points are still accurate:
 Each of those files should agree on three facts:
 
 - the Phase 1 baseline remains the stable deployment path
-- Phase 2 is isolated under `phase2/`
-- Phase 3 stays off-device for training and targets export back to the Grove Vision AI V2 path
+- Phase 2 native test count (currently **39**)
+- mypy scope (currently **24 source files** including `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`)
 
 ## Validation Gaps
 

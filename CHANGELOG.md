@@ -2,7 +2,33 @@
 
 All notable changes to this workspace-ready repo slice are documented in this file.
 
-## Unreleased
+## [Unreleased] — Phase 2 PIR Wake-Source Classification & Type Safety
+
+### Added
+
+- **`phase2/camera-node-firmware/include/wildlife/pir_event.h`** — `constexpr should_accept_pir_edge()` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; zero Arduino dependencies, fully native-testable.
+- **`phase2/camera-node-firmware/include/wildlife/power_policy.h`** extended with `WakeSource` enum (`kColdBoot`, `kPirExt0`, `kTimer`, `kUnknown`), `kEspWakeCauseUndefined/Ext0/Timer` constants, and `classify_wake_source()` pure function mapping `esp_sleep_get_wakeup_cause()` numerics to typed enum values.
+- **`phase2/camera-node-firmware/src/power_mgmt.cpp`** — `PowerManager::begin()` now classifies the boot wake source; `last_wake_source()` accessor exposed on the class. Native stub returns `kColdBoot` unconditionally.
+- **39 Unity native tests** (up from 29): 4 for `classify_wake_source`, 4 for `should_accept_pir_edge` (first edge, within window, exact boundary, uint32 wrap-around), 1 for `last_wake_source()` accessor, 1 for new config constants, plus all pre-existing tests.
+- **`config.h` tunables**: `WILDLIFE_PIR_DEBOUNCE_MS` (250 ms, overridable) and `WILDLIFE_WAKE_BOOT_GRACE_MS` (500 ms, overridable) macros promoted to `kPirDebounceMs` / `kWakeBootGraceMs` namespace constants.
+- **Expanded mypy typecheck scope** — harness `typecheck` task and `pyproject.toml` now cover `scripts/` and `deploy.py` in addition to kiosk and tests (24 source files total).
+
+### Fixed
+
+- **20 mypy type errors resolved** across 9 files:
+  - Removed 9 stale `# type: ignore[import-untyped]` / `# type: ignore` comments — `paramiko ≥ 3.0` now ships a `py.typed` marker (with the `types-paramiko` stub package pinned in dev deps for CI parity), and the workspace-local stubs under `typings/paho/` cover the `paho-mqtt 1.x` line that this repo still pins.
+  - `scripts/verify_pi_roundtrip.py` and `scripts/verify_pi_diagnose.py`: `rc` now typed as `int` via `int(stdout.channel.recv_exit_status())` to satisfy `no-any-return`.
+  - `scripts/verify_e2e_journey.py`: `chan.send()` argument changed from `str` to `bytes` (`.encode()`), matching `paramiko.Channel.send` signature.
+  - `scripts/_mqtt_client.py`: replaced explicit-kwarg + `**extra` pattern with a single merged dict to avoid `"Client gets multiple values for keyword"` error under mypy's duplicate-kwarg check.
+  - `pi-display-node/tests/test_ssh_client.py`: added `from typing import cast`; all `build_ssh_client()` return values cast to `_FakeClient`; `connect()` call sites with `_FakeClient` instances annotated with `# type: ignore[arg-type]` at the monkeypatch boundary.
+
+### Changed
+
+- `.gitignore` extended with: `dist/`, `build/`, editor swap files (`.swp`, `.swo`, `*~`, `.DS_Store`, `Thumbs.db`), `.env` / credential files, compiled ML artifacts (`*.onnx`, `*.tflite`, `*.vela.tflite`, `*.h5`), firmware binaries (`firmware.bin`, `firmware.elf`, `bootloader.bin`, `partitions.bin`).
+
+---
+
+## Previous — Phase 2 Power Management Testability & Export Manifest
 
 ### Fixed (review-pass 2)
 
@@ -37,6 +63,11 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 - Lifted previously hard-coded Phase 2 firmware tunables (serial baud, boot/poll/sleep-settle delays, detection/MQTT/WiFi buffer sizes, MQTT keepalive/socket-timeout/reconnect-backoff/QoS/will/topic-buffer sizes, WiFi connect timeout, model id) into overridable `WILDLIFE_*` macros + `kSerialBaud`, `kBootDelayMs`, `kPollIdleDelayMs`, `kDeepSleepSettleMs`, `kDetectionPayloadBytes`, `kFrameIdBufferBytes`, `kMqttBufferBytes`, `kMqttKeepAliveSeconds`, `kMqttSocketTimeoutSeconds`, `kMqttReconnectBackoffMs`, `kMqttStatusBufferBytes`, `kMqttWillBufferBytes`, `kMqttTopicBufferBytes`, `kMqttStatusQos`, `kWifiConnectTimeoutMs`, `kWifiPollIntervalMs`, `kModelId` constants in `phase2/camera-node-firmware/include/wildlife/config.h`, eliminating magic numbers from `main.cpp`, `net_mqtt.cpp`, `net_wifi.cpp`, and `power_mgmt.cpp`.
 - Added 5 Unity firmware tests covering `format_thumb_topic` null guards, truncation reporting, zero-budget rejection, base64 quartet rounding, and runtime config-constant exposure (26 total native tests).
+- Added `phase2/camera-node-firmware/include/wildlife/pir_event.h` with `should_accept_pir_edge()`, a `constexpr` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; no Arduino dependency.
+- Extended `phase2/camera-node-firmware/include/wildlife/power_policy.h` with `WakeSource` enum, `kEspWakeCauseUndefined/Ext0/Timer` local constants, and `classify_wake_source()` pure function mapping `esp_sleep_get_wakeup_cause()` numerics to enum values — native-testable without `<esp_sleep.h>`.
+- Extended `config.h` with `WILDLIFE_PIR_DEBOUNCE_MS` (250 ms, overridable) and `WILDLIFE_WAKE_BOOT_GRACE_MS` (500 ms, overridable) macros lifted to `kPirDebounceMs` / `kWakeBootGraceMs` namespace constants.
+- Extended `PowerManager::begin()` to classify boot wake source; `last_wake_source()` accessor exposed on the class. Native stub returns `kColdBoot` unconditionally.
+- Extended Unity native test suite from 29 to 39 tests: 4 for `classify_wake_source`, 4 for `should_accept_pir_edge` (first edge, within window, exact boundary, uint32 wrap-around), 1 for `last_wake_source()` in native, 1 for new config constants.
 - Created `ml-pipeline/src/wildlife_ml/export/manifest.py` frozen dataclass linking ONNX models to class labels and kiosk metadata.
 - Added 3 ExportManifest tests plus hypothesis property test for `prepare_image_batch` (14 total ml-pipeline tests).
 - Exposed public helpers in class_names.h: `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`.

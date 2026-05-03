@@ -29,6 +29,7 @@ dev = [
     "ruff>=0.11.0",
     "tomli>=2.0.1; python_version < '3.11'",
     "types-PyYAML>=6.0.12.20250402",
+    "types-paramiko>=3.0",
 ]
 
 [tool.setuptools]
@@ -78,7 +79,7 @@ extend-ignore-names = ["mousePressEvent", "resizeEvent"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests"]
+files = ["pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests", "scripts", "deploy.py", ".agents/harness/orchestrator.py"]
 mypy_path = ["typings"]
 check_untyped_defs = true
 exclude = ["^\\.venv/", "^camera-node-firmware/\\.pio/"]

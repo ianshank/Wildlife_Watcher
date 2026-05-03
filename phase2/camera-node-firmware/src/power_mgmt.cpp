@@ -7,11 +7,34 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
 #include <esp_sleep.h>
+
+// Lock the host-side classify_wake_source() numeric mapping to the real
+// ESP-IDF enum values. If the SDK ever renumbers esp_sleep_source_t, this
+// catches the drift at compile time so the native tests cannot silently
+// diverge from on-device behaviour.
+static_assert(
+    wildlife::kEspWakeCauseUndefined == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_UNDEFINED),
+    "kEspWakeCauseUndefined must match ESP_SLEEP_WAKEUP_UNDEFINED");
+static_assert(
+    wildlife::kEspWakeCauseExt0 == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_EXT0),
+    "kEspWakeCauseExt0 must match ESP_SLEEP_WAKEUP_EXT0");
+static_assert(
+    wildlife::kEspWakeCauseTimer == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_TIMER),
+    "kEspWakeCauseTimer must match ESP_SLEEP_WAKEUP_TIMER");
 #endif
 
 namespace wildlife {
 
 void PowerManager::begin() {
+    // Classify the wakeup cause before any other initialisation so that
+    // callers can query last_wake_source() at any point after begin().
+#if defined(ARDUINO_ARCH_ESP32)
+    wake_source_ = classify_wake_source(
+        static_cast<std::uint32_t>(esp_sleep_get_wakeup_cause()));
+#else
+    wake_source_ = WakeSource::kColdBoot;
+#endif
+
     if (kPirWakeEnabled) {
         pinMode(kPirPin, INPUT);
     }
@@ -39,6 +62,10 @@ void PowerManager::maybe_sleep(bool saw_activity) {
 
 bool PowerManager::pir_wake_enabled() const {
     return kPirWakeEnabled;
+}
+
+WakeSource PowerManager::last_wake_source() const {
+    return wake_source_;
 }
 
 }  // namespace wildlife

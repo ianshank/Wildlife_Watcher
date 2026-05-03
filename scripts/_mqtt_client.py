@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import paho.mqtt.client as mqtt  # type: ignore[import-untyped]
+import paho.mqtt.client as mqtt
 
 log = logging.getLogger(__name__)
 
@@ -43,13 +43,13 @@ def make_client(
     """
     cb_api = getattr(mqtt, "CallbackAPIVersion", None)
     if cb_api is not None:
+        # Build a single kwargs dict so no explicit keyword can clash with **extra.
+        # Explicit parameters shadow any accidental duplicate in extra.
+        merged: dict[str, Any] = dict(extra)
+        merged["client_id"] = client_id
+        merged["clean_session"] = clean_session
         try:
-            return mqtt.Client(
-                cb_api.VERSION1,
-                client_id=client_id,
-                clean_session=clean_session,
-                **extra,
-            )
+            return mqtt.Client(cb_api.VERSION1, **merged)
         except TypeError:
             log.debug(
                 "paho v2 signature rejected for client_id=%s; falling back to v1",
