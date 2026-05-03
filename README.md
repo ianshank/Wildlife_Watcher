@@ -133,7 +133,7 @@ Run the standard checks through the repo harness so local runs and CI stay align
 ./setup_and_test.ps1
 python .agents/harness/orchestrator.py quality
 python .agents/harness/orchestrator.py lint
-python .agents/harness/orchestrator.py typecheck  # 24 source files (kiosk + tests + scripts + deploy.py)
+python .agents/harness/orchestrator.py typecheck  # 24 source files (kiosk + tests + scripts + deploy.py + .agents/harness/orchestrator.py)
 python .agents/harness/orchestrator.py test       # 64 tests @ 98.87% branch coverage
 python .agents/harness/orchestrator.py agents-md-coverage
 python .agents/harness/orchestrator.py firmware-build

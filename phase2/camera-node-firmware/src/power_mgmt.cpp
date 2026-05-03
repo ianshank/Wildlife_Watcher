@@ -7,6 +7,20 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
 #include <esp_sleep.h>
+
+// Lock the host-side classify_wake_source() numeric mapping to the real
+// ESP-IDF enum values. If the SDK ever renumbers esp_sleep_source_t, this
+// catches the drift at compile time so the native tests cannot silently
+// diverge from on-device behaviour.
+static_assert(
+    wildlife::kEspWakeCauseUndefined == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_UNDEFINED),
+    "kEspWakeCauseUndefined must match ESP_SLEEP_WAKEUP_UNDEFINED");
+static_assert(
+    wildlife::kEspWakeCauseExt0 == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_EXT0),
+    "kEspWakeCauseExt0 must match ESP_SLEEP_WAKEUP_EXT0");
+static_assert(
+    wildlife::kEspWakeCauseTimer == static_cast<std::uint32_t>(ESP_SLEEP_WAKEUP_TIMER),
+    "kEspWakeCauseTimer must match ESP_SLEEP_WAKEUP_TIMER");
 #endif
 
 namespace wildlife {

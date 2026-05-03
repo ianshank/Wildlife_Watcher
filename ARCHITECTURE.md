@@ -65,7 +65,7 @@ Compatibility headers under `camera-node-firmware/include/wildlife/compat/` keep
 | `sscma_io.*` | Grove Vision AI V2 polling and detection shaping. |
 | `sscma_decode.h` | Pure detection-decode helpers (class-id mask, score→confidence, max-score tracking, thumb-publish gate) used by `main.cpp` and covered by native Unity tests. |
 | `power_mgmt.*` | Always-on versus PIR/deep-sleep behavior. `PowerManager::begin()` classifies the boot wake source; `last_wake_source()` exposes it for logging and policy decisions. |
-| `power_policy.h` | Pure sleep-decision policy, `WakeSource` enum (`kColdBoot`, `kPirWake`, `kTimerWake`, `kUnknown`), and `classify_wake_source()` function used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
+| `power_policy.h` | Pure sleep-decision policy, `WakeSource` enum (`kColdBoot`, `kPirExt0`, `kTimer`, `kUnknown`), and `classify_wake_source()` function used by `power_mgmt.*` and covered by native Unity tests without Arduino dependencies. |
 | `pir_event.h` | `constexpr should_accept_pir_edge()` debounce helper using `uint32_t` subtraction for wrap-safe `micros()` comparison; zero Arduino dependencies. |
 | `class_names.h` | Inline class-label lookup without Arduino dependency; provides `configured_class_name()`, `kClassNameCount`, `kClassNameFallbackBufferSize`. |
 | `config.h`, `topic_names.h`, `fps_meter.h`, `debounce.h` | Shared constants and lightweight reusable helpers. |
@@ -130,4 +130,4 @@ This layer is intentionally outside the unit-test perimeter: it touches a real P
 - GitHub repository settings should be aligned so the default branch is `main`.
 - PlatformIO validation depends on a local `platformio` installation, which is not currently available in this environment.
 - Phase 3 remains an offline training and export path only; deployment still targets the Grove Vision AI V2 Ethos-U55 path and does not introduce a Jetson runtime tier.
-- The mypy typecheck gate now covers **24 source files** (kiosk module, all tests, `scripts/`, and `deploy.py`). Zero type errors are enforced via `warn_unused_ignores = true`.
+- The mypy typecheck gate now covers **24 source files** (kiosk module, all tests, `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`). Zero type errors are enforced via `warn_unused_ignores = true`.

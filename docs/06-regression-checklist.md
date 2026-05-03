@@ -18,8 +18,8 @@ python .agents/harness/orchestrator.py quality
 
 Expected result:
 
-- Ruff passes on 24 source files (kiosk + tests + scripts + deploy.py + orchestrator).
-- mypy passes on 24 source files (expanded scope now includes `scripts/` and `deploy.py`).
+- Ruff passes on the full lint target set configured by the harness — `pi-display-node/kiosk`, `pi-display-node/tests`, `scripts`, `deploy.py`, `camera-node-firmware/tests`, and `.agents/harness/orchestrator.py`.
+- mypy passes on **24 source files** (kiosk module, tests, `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`).
 - pytest 64/64 passes.
 - Coverage remains at or above 85% (currently 98.87% on the kiosk module).
 
@@ -119,7 +119,7 @@ Each of those files should agree on three facts:
 
 - the Phase 1 baseline remains the stable deployment path
 - Phase 2 native test count (currently **39**)
-- mypy scope (currently **24 source files** including scripts + deploy.py)
+- mypy scope (currently **24 source files** including `scripts/`, `deploy.py`, and `.agents/harness/orchestrator.py`)
 
 ## Validation Gaps
 
