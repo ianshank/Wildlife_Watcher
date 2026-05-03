@@ -48,8 +48,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-# Kept for type-only references used in annotations below.
-import paho.mqtt.client as mqtt_client  # type: ignore  # noqa: F401
 import paramiko  # type: ignore
 from _mqtt_client import make_client as _make_mqtt_client
 from _pi_creds import load as _load_creds

@@ -52,7 +52,12 @@ def plain(client, label, cmd, timeout=20):
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     client = build_ssh_client()
-    connect(client, HOST, USER, PASS)
+    try:
+        connect(client, HOST, USER, PASS)
+    except Exception as exc:
+        print(f"FAILED: SSH connect failed: {exc}")
+        client.close()
+        return 1
     try:
         shell(client, "etc-config", "cat /etc/wildlife/config.yaml")
         shell(client, "wildlife-conf",

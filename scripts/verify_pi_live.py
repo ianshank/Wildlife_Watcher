@@ -58,7 +58,12 @@ def main() -> int:
         return 2
 
     client = build_ssh_client()
-    connect(client, HOST, USER, PASS)
+    try:
+        connect(client, HOST, USER, PASS)
+    except Exception as exc:
+        print(f"FAILED: SSH connect failed: {exc}")
+        client.close()
+        return 1
     try:
         ping_cmd = (
             f"ping -c {CAMERA_PING_COUNT} -W {CAMERA_PING_TIMEOUT_S} "

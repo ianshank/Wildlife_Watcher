@@ -32,8 +32,8 @@ CHECKS: list[tuple[str, str, int]] = [
     (
         "kiosk-config",
         f"for p in {_KIOSK_CONFIG_PATHS}; "
-        "do [ -f \"$p\" ] && echo \"=== $p ===\" && "
-        "sudo -n cat \"$p\" 2>/dev/null || cat \"$p\" 2>/dev/null; done",
+        "do if [ -f \"$p\" ]; then echo \"=== $p ===\"; "
+        "sudo -n cat \"$p\" 2>/dev/null || cat \"$p\" 2>/dev/null; fi; done",
         15,
     ),
     (
@@ -95,7 +95,12 @@ def run(client, label: str, command: str, timeout: int) -> int:
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     client = build_ssh_client()
-    connect(client, HOST, USER, PASS)
+    try:
+        connect(client, HOST, USER, PASS)
+    except Exception as exc:
+        print(f"FAILED: SSH connect failed: {exc}")
+        client.close()
+        return 1
     try:
         for label, cmd, to in CHECKS:
             run(client, label, cmd, to)
