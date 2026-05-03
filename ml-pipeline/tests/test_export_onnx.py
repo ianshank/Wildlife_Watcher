@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -61,12 +62,12 @@ def test_build_export_command_with_custom_config(tmp_path: Path) -> None:
     assert "opset=17" in cmd
 
 
-def test_run_export_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    rc = run_export(tmp_path / "w.pt", tmp_path / "o", dry_run=True)
+def test_run_export_dry_run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="wildlife_ml.export.onnx"):
+        rc = run_export(tmp_path / "w.pt", tmp_path / "o", dry_run=True)
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "yolo" in out
-    assert "format=onnx" in out
+    assert "yolo" in caplog.text
+    assert "format=onnx" in caplog.text
 
 
 def test_run_export_invokes_subprocess(tmp_path: Path) -> None:

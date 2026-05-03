@@ -151,11 +151,15 @@ def _make_paho_client(client_id: str, *, clean_session: bool = True) -> mqtt.Cli
     cb_api = getattr(mqtt, "CallbackAPIVersion", None)
     if cb_api is not None:
         try:
-            return mqtt.Client(  # type: ignore[misc]
+            # Use Any-typed alias so mypy doesn't raise on positional/keyword
+            # conflicts whose error code varies across paho stub versions.
+            _cls: Any = mqtt.Client
+            _client = _cls(
                 cb_api.VERSION1,
                 client_id=client_id,
                 clean_session=clean_session,
             )
+            return cast(mqtt.Client, _client)
         except TypeError:
             pass
     return mqtt.Client(client_id=client_id, clean_session=clean_session)

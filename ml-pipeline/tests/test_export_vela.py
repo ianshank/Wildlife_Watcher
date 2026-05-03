@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -64,14 +65,14 @@ def test_build_vela_command_custom_accelerator(tmp_path: Path) -> None:
     assert "--accelerator-config=ethos-u65-256" in cmd
 
 
-def test_run_vela_dry_run_prints_and_returns_zero(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_run_vela_dry_run_logs_command_and_returns_zero(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    rc = run_vela(tmp_path / "m.tflite", tmp_path / "out", dry_run=True)
-    out = capsys.readouterr().out
+    with caplog.at_level(logging.INFO, logger="wildlife_ml.export.vela"):
+        rc = run_vela(tmp_path / "m.tflite", tmp_path / "out", dry_run=True)
     assert rc == 0
-    assert "vela" in out
-    assert "--accelerator-config=ethos-u55-128" in out
+    assert "vela" in caplog.text
+    assert "--accelerator-config=ethos-u55-128" in caplog.text
 
 
 def test_run_vela_invokes_subprocess_when_not_dry_run(tmp_path: Path) -> None:

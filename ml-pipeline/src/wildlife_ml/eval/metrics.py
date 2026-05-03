@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wildlife_ml.types import Float32Tensor, Int64Tensor
+from wildlife_ml.types import Int64Tensor
 
 
 def intersection_over_union(box_a: Int64Tensor, box_b: Int64Tensor) -> float:
@@ -32,4 +32,4 @@ def precision_recall(
     return precision, recall
 
 
-__all__ = ["Float32Tensor", "intersection_over_union", "precision_recall"]
+__all__ = ["intersection_over_union", "precision_recall"]

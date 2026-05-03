@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from wildlife_ml.export.onnx import OnnxExportConfig
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -21,7 +25,7 @@ def build_tflite_command(
     resolved = config or TfliteExportConfig()
     image_height, image_width = resolved.image_size
     return [
-        "python",
+        sys.executable,
         "-m",
         "onnx2tf",
         "-i",
@@ -41,9 +45,11 @@ def build_tflite_command(
 def run_tflite_export(onnx_model: Path, output_dir: Path, *, dry_run: bool = False) -> int:
     command = build_tflite_command(onnx_model, output_dir)
     if dry_run:
-        print(" ".join(command))
+        log.info("dry run: %s", " ".join(command))
         return 0
+    log.debug("running: %s", " ".join(command))
     completed = subprocess.run(command, check=False)
+    log.debug("returncode: %d", completed.returncode)
     return completed.returncode
 
 
