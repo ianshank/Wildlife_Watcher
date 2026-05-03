@@ -19,9 +19,18 @@ if str(_SCRIPTS) not in sys.path:
 import _pi_creds  # noqa: E402
 from _pi_creds import Credentials  # noqa: E402
 
+# Sentinel path used in env mappings to force ``_pi_targets.resolve_target``
+# down the env-only branch (no real YAML file is read). This keeps the
+# Credentials.load_from_env() tests hermetic on developer machines that
+# happen to have ``~/.wildlife/pi-targets.yaml`` configured.
+_NO_YAML = "/nonexistent/wildlife-targets-for-tests.yaml"
+
 
 def test_load_from_env_uses_pi_targets_for_host_and_user(monkeypatch):
-    env = {"PI_HOST": "10.0.0.5", "PI_USER": "alice", "PI_PASS": "secret"}
+    env = {
+        "PI_HOST": "10.0.0.5", "PI_USER": "alice", "PI_PASS": "secret",
+        "PI_TARGETS_FILE": _NO_YAML,
+    }
     creds = Credentials.load_from_env(env=env)
     assert creds.host == "10.0.0.5"
     assert creds.user == "alice"
@@ -30,7 +39,10 @@ def test_load_from_env_uses_pi_targets_for_host_and_user(monkeypatch):
 
 
 def test_load_from_env_with_key_only_returns_none_password():
-    env = {"PI_HOST": "10.0.0.5", "PI_USER": "alice", "PI_KEY": "/k/id_ed25519"}
+    env = {
+        "PI_HOST": "10.0.0.5", "PI_USER": "alice",
+        "PI_KEY": "/k/id_ed25519", "PI_TARGETS_FILE": _NO_YAML,
+    }
     creds = Credentials.load_from_env(env=env)
     assert creds.password is None
     assert creds.key_path == "/k/id_ed25519"
@@ -42,6 +54,7 @@ def test_load_from_env_with_both_password_and_key():
         "PI_USER": "alice",
         "PI_PASS": "p",
         "PI_KEY": "/k/id",
+        "PI_TARGETS_FILE": _NO_YAML,
     }
     creds = Credentials.load_from_env(env=env)
     assert creds.password == "p"
@@ -49,14 +62,17 @@ def test_load_from_env_with_both_password_and_key():
 
 
 def test_load_from_env_raises_when_neither_password_nor_key_is_set():
-    env = {"PI_HOST": "10.0.0.5", "PI_USER": "alice"}
+    env = {
+        "PI_HOST": "10.0.0.5", "PI_USER": "alice",
+        "PI_TARGETS_FILE": _NO_YAML,
+    }
     with pytest.raises(RuntimeError, match="PI_PASS or PI_KEY"):
         Credentials.load_from_env(env=env)
 
 
 def test_load_from_env_raises_when_no_target_source_configured():
     # No PI_HOST and no PI_TARGETS_FILE entry: resolve_target("display") raises.
-    env: dict[str, str] = {"PI_PASS": "p"}
+    env: dict[str, str] = {"PI_PASS": "p", "PI_TARGETS_FILE": _NO_YAML}
     with pytest.raises(RuntimeError, match="Cannot resolve Pi target 'display'"):
         Credentials.load_from_env(env=env)
 
@@ -125,3 +141,36 @@ def test_load_legacy_exits_cleanly_on_unresolvable_target(monkeypatch, capsys):
     assert excinfo.value.code == 2
     err = capsys.readouterr().err
     assert "display" in err.lower() or "PI_HOST" in err
+
+
+def test_load_or_exit_returns_credentials_with_key_only():
+    """``load_or_exit`` is the new key-aware entry point; it must permit
+    PI_KEY-only auth (PASS=None) so verify_pi_*.py scripts can do real
+    public-key SSH without forcing PI_PASS.
+    """
+    env = {
+        "PI_HOST": "10.0.0.5", "PI_USER": "alice",
+        "PI_KEY": "/k/id_ed25519", "PI_TARGETS_FILE": _NO_YAML,
+    }
+    creds = _pi_creds.load_or_exit(env=env)
+    assert creds.password is None
+    assert creds.key_path == "/k/id_ed25519"
+
+
+def test_load_or_exit_exits_when_no_credential_set(capsys):
+    env = {
+        "PI_HOST": "10.0.0.5", "PI_USER": "alice",
+        "PI_TARGETS_FILE": _NO_YAML,
+    }
+    with pytest.raises(SystemExit) as excinfo:
+        _pi_creds.load_or_exit(env=env)
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "PI_PASS" in err and "PI_KEY" in err
+
+
+def test_load_or_exit_exits_when_target_unresolvable(capsys):
+    env = {"PI_PASS": "p", "PI_TARGETS_FILE": _NO_YAML}
+    with pytest.raises(SystemExit) as excinfo:
+        _pi_creds.load_or_exit(env=env)
+    assert excinfo.value.code == 2

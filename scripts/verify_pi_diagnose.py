@@ -6,16 +6,16 @@ explain why observations.db is empty.
 from __future__ import annotations
 
 import logging
-import os
 import sys
 
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
 from _ssh_client import build_ssh_client, connect
 
 log = logging.getLogger("verify_pi_diagnose")
 
-HOST, USER, PASS = _load_creds()
-PI_KEY = os.environ.get("PI_KEY") or None
+_creds = _load_creds()
+HOST, USER, PASS = _creds.host, _creds.user, _creds.password
+PI_KEY = _creds.key_path
 
 _KIOSK_CONFIG_PATHS = (
     "/etc/wildlife-kiosk/config.yaml "

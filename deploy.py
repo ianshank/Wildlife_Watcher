@@ -38,7 +38,7 @@ import paramiko
 # matrix (key + password vs. password-only) so ``deploy.py`` does not
 # need to re-implement (and unit-test) the same logic.
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from _pi_creds import load as _load_pi_creds
+from _pi_creds import load_or_exit as _load_pi_creds
 from _ssh_client import connect as _ssh_connect
 
 
@@ -87,18 +87,18 @@ def _build_ssh_client() -> paramiko.SSHClient:
 
 
 def main() -> int:
-    host, user, pi_pass = _load_pi_creds()
+    creds = _load_pi_creds()
+    host, user, pi_pass, pi_key = (
+        creds.host, creds.user, creds.password, creds.key_path,
+    )
     broker_user = os.environ.get("BROKER_USER", "wildlife").strip() or "wildlife"
     broker_pass = _require("BROKER_PASS")
-    # Optional public-key auth: PI_KEY wins over PI_PASS when set, but the
-    # password is still threaded through so paramiko can decrypt encrypted
-    # private keys.
-    pi_key = os.environ.get("PI_KEY") or None
 
     # ``deploy.py`` shells the installer with ``sudo -S`` and pipes the Pi
-    # password into stdin; key-only auth is therefore not sufficient on its
-    # own. Surface a clear error rather than letting sudo hang forever on a
-    # blank stdin if the operator forgot ``PI_PASS``.
+    # password into stdin; key-only SSH auth is therefore not sufficient on
+    # its own. ``load_or_exit`` permits ``password=None`` when ``PI_KEY``
+    # is set, so we re-enforce ``PI_PASS`` here for the sudo path. Surface
+    # a clear error rather than letting sudo hang forever on a blank stdin.
     if not pi_pass:
         sys.stderr.write(
             "error: PI_PASS is required for deploy.py because the installer "

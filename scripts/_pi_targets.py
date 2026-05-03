@@ -173,7 +173,7 @@ def resolve_target(
 
     raise RuntimeError(
         f"Cannot resolve Pi target {name!r}: no entry in PI_TARGETS_FILE "
-        f"({e.get('PI_TARGETS_FILE', _DEFAULT_TARGETS_FILE)}), no env vars "
+        f"({e.get('PI_TARGETS_FILE') or _DEFAULT_TARGETS_FILE}), no env vars "
         f"({_ENV_VARS.get(name, ('<unknown>', '<unknown>'))[0]}/...), "
         "and no fallback supplied."
     )

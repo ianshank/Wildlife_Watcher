@@ -93,11 +93,8 @@ def load() -> tuple[str, str, str]:
       * Requires ``PI_PASS``. Key-only auth is intentionally *not*
         supported by this 3-tuple shim because callers cannot forward
         a key path to :func:`_ssh_client.connect`. New scripts should
-        use :meth:`Credentials.load_from_env` and read ``key_path``
-        directly, then pass it as ``key_filename=`` to ``connect()``.
-      * Existing ``verify_pi_*.py`` scripts may additionally read
-        ``PI_KEY`` themselves and forward it to ``connect()``; this
-        loader stays password-shaped to preserve the legacy contract.
+        use :func:`load_or_exit` (which returns a :class:`Credentials`
+        dataclass carrying both ``password`` and ``key_path``).
     """
     try:
         target = resolve_target("display")
@@ -114,8 +111,31 @@ def load() -> tuple[str, str, str]:
             "error: PI_PASS environment variable is required.\n"
             "  PowerShell:  $env:PI_PASS = '<password>'\n"
             "  bash:        export PI_PASS='<password>'\n"
-            "  Note: PI_KEY (key auth) does not flow through this legacy\n"
-            "  loader; verify_pi_*.py reads PI_KEY directly.\n"
+            "  Note: PI_KEY-only auth requires load_or_exit() (returns a\n"
+            "  Credentials dataclass), not this legacy 3-tuple loader.\n"
         )
         sys.exit(2)
     return target.host, target.user, pw
+
+
+def load_or_exit(env: Mapping[str, str] | None = None) -> Credentials:
+    """Key-aware credential loader for verify_pi_*.py scripts.
+
+    Wraps :meth:`Credentials.load_from_env` so misconfiguration produces
+    a friendly ``sys.exit(2)`` (with a configuration hint) instead of a
+    Python stack trace.
+
+    Unlike :func:`load`, this returns the full :class:`Credentials`
+    dataclass — including ``key_path`` — so callers can forward
+    ``key_filename=creds.key_path`` to :func:`_ssh_client.connect` and
+    support PI_KEY-only auth (no PI_PASS required when PI_KEY is set).
+    """
+    try:
+        return Credentials.load_from_env(env=env)
+    except RuntimeError as exc:
+        sys.stderr.write(
+            f"error: cannot load Pi SSH credentials: {exc}\n"
+            "  Hint: set PI_HOST/PI_USER (or pi-targets.yaml display entry),\n"
+            "        and at least one of PI_PASS or PI_KEY. See README.md.\n"
+        )
+        sys.exit(2)

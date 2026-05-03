@@ -202,15 +202,19 @@ Remove-Item env:PI_KEY, env:PI_HOST, env:PI_USER
 Expected: SSH connects via `~/.ssh/id_ed25519` (and ssh-agent / `look_for_keys=True`); `paramiko` does **not** prompt for a password.
 
 ```powershell
-# Encrypted-key path: both PI_KEY and PI_PASS set; password unlocks the key.
+# Encrypted-key path: PI_KEY + PI_PASS both set; PI_PASS may be the key
+# passphrase or the SSH login password (paramiko tries both). PI_PASS is
+# also used by deploy.py for the on-Pi `sudo -S` step, so it cannot be
+# omitted here.
 $env:PI_KEY  = "$HOME\.ssh\id_ed25519_encrypted"
-$env:PI_PASS = '<key-passphrase>'
+$env:PI_PASS = '<key-passphrase-or-login-password>'
 $env:PI_HOST = '<pi-ip>'; $env:PI_USER = '<pi-user>'
-.\.venv\Scripts\python.exe deploy.py --dry-run
-Remove-Item env:PI_KEY, env:PI_PASS, env:PI_HOST, env:PI_USER
+$env:BROKER_PASS = '<broker-password>'   # required by deploy.py
+.\.venv\Scripts\python.exe deploy.py
+Remove-Item env:PI_KEY, env:PI_PASS, env:PI_HOST, env:PI_USER, env:BROKER_PASS
 ```
 
-Expected: `deploy.py` connects with `key_filename + password` and the dry-run rsync plan is printed.
+Expected: `deploy.py` connects via `_ssh_client.connect(key_filename=…, password=…)` and proceeds with the rsync + installer flow on the Pi. (`deploy.py` does not currently expose a `--dry-run` switch; abort with `Ctrl-C` after the connect line if you only want to verify SSH.)
 
 ```powershell
 # Neither set: connect() must raise ValueError before any network call.

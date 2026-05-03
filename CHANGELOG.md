@@ -21,7 +21,7 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 - **`scripts/_ssh_client.py` `connect()`** — kwarg-additive: new `key_filename: str | None = None`, `password` becomes optional. Key-present path enables `allow_agent=True` / `look_for_keys=True`; password-only keeps legacy safe defaults. Raises `ValueError` when both are `None`. All existing callers continue to work unchanged via the legacy positional `password` arg.
 - **`deploy.py`** — threads `PI_KEY` env through `paramiko.SSHClient.connect()`. Default unset path keeps existing password-only flow byte-for-byte.
-- **`scripts/verify_pi_live.py`** — replaces literal `192.168.4.30` with `_pi_targets.resolve_target("camera")`; **no literal fallback** — misconfiguration surfaces as `RuntimeError` at import time.
+- **`scripts/verify_pi_live.py`** — replaces literal `192.168.4.30` with `_pi_targets.resolve_target("camera")`; **no literal fallback**. Camera-target resolution happens lazily inside `main()` (via `_resolve_camera_ip()`), and misconfiguration exits with a friendly `error: cannot resolve camera target …` message + `sys.exit(2)` instead of an import-time stack trace.
 - **`pyproject.toml`** — `[tool.coverage.run] source` extended to include `scripts/` (with `omit` for `verify_*.py`, `deploy.py`, `read_xiao_serial.py` which require live hardware). New helpers (`_pi_creds`, `_pi_targets`, `_mqtt_client`, `_ssh_client`) are now under the 85 % gate.
 - **`.agents/harness.toml`** — harness `test` task adds `--cov=scripts` so the orchestrator-driven gate matches `pyproject.toml`.
 - **`.gitignore`** — adds `pi-targets.yaml` and `.wildlife/` so a project-local copy of the targets file is never committed.

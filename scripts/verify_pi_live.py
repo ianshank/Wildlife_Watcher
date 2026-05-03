@@ -25,17 +25,18 @@ import os
 import shlex
 import sys
 
-from _pi_creds import load as _load_creds
+from _pi_creds import load_or_exit as _load_creds
 from _pi_targets import resolve_target
 from _ssh_client import build_ssh_client, connect
 
 log = logging.getLogger("verify_pi_live")
 
-HOST, USER, PASS = _load_creds()
-# Optional public-key auth: when ``PI_KEY`` is set the helper threads it
-# into ``_ssh_client.connect(key_filename=...)`` alongside ``PASS`` (which
-# may be a key passphrase rather than a login password).
-PI_KEY = os.environ.get("PI_KEY") or None
+_creds = _load_creds()
+HOST, USER, PASS = _creds.host, _creds.user, _creds.password
+# PI_KEY (when set) is forwarded to ``_ssh_client.connect(key_filename=)``
+# alongside PASS (which may be a key passphrase). PI_KEY-only auth is
+# supported: PASS is then ``None`` and connect() relies solely on the key.
+PI_KEY = _creds.key_path
 MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
 MQTT_PASS = os.environ.get("MQTT_PASS", "")
 
