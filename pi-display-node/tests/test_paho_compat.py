@@ -84,9 +84,10 @@ def fake_paho_v2_typeerror() -> Any:
             self.args = args
             self.kwargs = kwargs
             calls.append((args, kwargs))
-            # Reject v2 positional arg; accept the v1 retry.
+            # Simulate a v2-shaped client rejecting the v2 callback-api positional arg;
+            # the compatibility shim should then retry with the v1-style call.
             if args and args[0] == "v1":
-                raise TypeError("simulated v1.x signature")
+                raise TypeError("simulated rejection of v2 callback-api positional argument")
 
     fake.Client = _Client
     fake._calls = calls
