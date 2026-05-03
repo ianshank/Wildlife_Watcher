@@ -28,6 +28,7 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+# scripts/ is added to sys.path above; suppress import-not-found for mypy.
 from _mqtt_client import make_client as scripts_make_client  # type: ignore[import-not-found]  # noqa: E402,I001
 
 import wildlife_kiosk  # noqa: E402

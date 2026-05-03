@@ -1,11 +1,10 @@
 """Reusable paramiko SSH client factory with safe-by-default host-key handling.
 
-Centralizes the SSH-policy logic shared by ``deploy.py`` and the
-``scripts/verify_pi_*.py`` family. Defaults to
-``paramiko.RejectPolicy`` after loading the user's ``known_hosts`` so we
-do not silently accept unknown host keys (MITM mitigation). Set
-``PI_HOST_KEY_POLICY=auto`` to fall back to ``AutoAddPolicy`` (with a
-WARNING) for first-contact bootstrapping.
+Provides the SSH-policy logic used by the ``scripts/verify_pi_*.py``
+family. Defaults to ``paramiko.RejectPolicy`` after loading the user's
+``known_hosts`` so we do not silently accept unknown host keys (MITM
+mitigation). Set ``PI_HOST_KEY_POLICY=auto`` to fall back to
+``AutoAddPolicy`` (with a WARNING) for first-contact bootstrapping.
 
 Environment variables
 ---------------------
