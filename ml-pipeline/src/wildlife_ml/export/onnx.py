@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 import numpy as np
 
 from wildlife_ml.types import Float32Tensor, UInt8Image
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -61,9 +64,11 @@ def build_export_command(
 def run_export(weights_path: Path, output_dir: Path, *, dry_run: bool = False) -> int:
     command = build_export_command(weights_path, output_dir)
     if dry_run:
-        print(" ".join(str(part) for part in command))
+        log.info("dry run: %s", " ".join(str(part) for part in command))
         return 0
+    log.debug("running: %s", " ".join(str(part) for part in command))
     completed = subprocess.run(command, check=False)
+    log.debug("returncode: %d", completed.returncode)
     return completed.returncode
 
 
@@ -76,6 +81,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _build_parser().parse_args()
     return run_export(args.weights_path, args.output_dir, dry_run=args.dry_run)
 

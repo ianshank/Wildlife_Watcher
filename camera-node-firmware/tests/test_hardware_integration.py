@@ -468,7 +468,7 @@ def test_no_crash_under_sustained_load(mqtt_client):
 
     while time.time() - start < 60:
         if not msg_queue.empty():
-            msg = msg_queue.get()
+            _ = msg_queue.get()
             now = time.time()
             gap = now - last_msg_time
             if gap > max_gap:

@@ -11,6 +11,7 @@ import contextlib
 import os
 import queue
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,21 +19,11 @@ from pathlib import Path
 import paho.mqtt.client as mqtt  # pyright: ignore[reportMissingTypeStubs, reportMissingImports]
 import pytest
 
-
-def _make_client(client_id: str) -> mqtt.Client:
-    """Construct a paho.mqtt.Client compatible with both 1.6.x and 2.x.
-
-    paho-mqtt 2.0 added a required ``CallbackAPIVersion`` positional arg.
-    We try the v2 signature first and fall back to the v1 one.
-    """
-    cb_api = getattr(mqtt, "CallbackAPIVersion", None)
-    if cb_api is not None:
-        try:
-            return mqtt.Client(cb_api.VERSION1, client_id=client_id, clean_session=True)
-        except TypeError:
-            pass
-    return mqtt.Client(client_id=client_id, clean_session=True)
-
+# Reach the repo-wide MQTT client factory under scripts/.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+from _mqtt_client import make_client as _make_client  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration (overridable via env vars)

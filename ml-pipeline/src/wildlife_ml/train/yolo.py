@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -35,9 +38,11 @@ def build_training_command(config: TrainConfig) -> list[str]:
 def run_training(config: TrainConfig, *, dry_run: bool = False) -> int:
     command = build_training_command(config)
     if dry_run:
-        print(" ".join(str(part) for part in command))
+        log.info("dry run: %s", " ".join(str(part) for part in command))
         return 0
+    log.debug("running: %s", " ".join(str(part) for part in command))
     completed = subprocess.run(command, check=False)
+    log.debug("returncode: %d", completed.returncode)
     return completed.returncode
 
 
@@ -55,6 +60,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _build_parser().parse_args()
     config = TrainConfig(
         dataset_yaml=args.dataset_yaml,

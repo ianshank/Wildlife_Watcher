@@ -48,9 +48,11 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-import paho.mqtt.client as mqtt_client  # type: ignore
 import paramiko  # type: ignore
+from _mqtt_client import make_client as _make_mqtt_client
 from _pi_creds import load as _load_creds
+from _ssh_client import build_ssh_client
+from _ssh_client import connect as _ssh_connect
 
 # Smallest valid JPEG (1x1 white pixel). Sourced verbatim from the kiosk's
 # own test fixture (pi-display-node/tests/test_thumb_cache.py::VALID_JPEG) so
@@ -118,7 +120,7 @@ def step1_camera_alive(broker: str, port: int, user: str, pw: str, node_id: str,
             payload = {"raw": m.payload[:80].decode("utf-8", "replace")}
         seen[m.topic] = payload
 
-    cli = mqtt_client.Client(client_id=f"e2e-watcher-{secrets.token_hex(4)}")
+    cli = _make_mqtt_client(f"e2e-watcher-{secrets.token_hex(4)}")
     cli.username_pw_set(user, pw)
     cli.on_message = _on_msg
     cli.connect(broker, port, keepalive=15)
@@ -184,7 +186,7 @@ def step2_inject(broker: str, port: int, user: str, pw: str,
             "bbox": list(frame.bbox),
         }],
     }
-    cli = mqtt_client.Client(client_id=f"e2e-cam-{secrets.token_hex(4)}")
+    cli = _make_mqtt_client(f"e2e-cam-{secrets.token_hex(4)}")
     cli.username_pw_set(user, pw)
     cli.connect(broker, port, keepalive=15)
     cli.loop_start()
@@ -218,10 +220,8 @@ def step2_inject(broker: str, port: int, user: str, pw: str,
 # ---------------------------------------------------------------------------
 
 def _ssh(host: str, user: str, pw: str) -> paramiko.SSHClient:
-    cli = paramiko.SSHClient()
-    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    cli.connect(host, username=user, password=pw, timeout=15,
-                allow_agent=False, look_for_keys=False)
+    cli = build_ssh_client()
+    _ssh_connect(cli, host, user, pw, timeout=15)
     return cli
 
 

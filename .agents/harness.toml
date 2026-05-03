@@ -7,7 +7,7 @@ pythonpath = [
 ]
 
 [commands]
-lint = ["{python}", "-m", "ruff", "check", "pi-display-node/kiosk", "pi-display-node/tests", ".agents/harness/orchestrator.py"]
+lint = ["{python}", "-m", "ruff", "check", "pi-display-node/kiosk", "pi-display-node/tests", "scripts", "deploy.py", "camera-node-firmware/tests", ".agents/harness/orchestrator.py"]
 typecheck = ["{python}", "-m", "mypy", "pi-display-node/kiosk/wildlife_kiosk.py", "pi-display-node/tests", ".agents/harness/orchestrator.py"]
 test = ["{python}", "-m", "pytest", "--cov=pi-display-node/kiosk", "--cov-report=term-missing", "--cov-fail-under=85"]
 firmware-build = ["{python}", "-m", "platformio", "run", "-d", "{repo_root}/camera-node-firmware"]
@@ -15,7 +15,7 @@ firmware-build-phase2 = ["{python}", "-m", "platformio", "run", "-d", "{repo_roo
 firmware-test-native = ["{python}", "-m", "platformio", "test", "-e", "native", "-d", "{repo_root}/phase2/camera-node-firmware"]
 ml-pipeline-lint = ["{python}", "-m", "ruff", "check", "--config", "{repo_root}/ml-pipeline/pyproject.toml", "{repo_root}/ml-pipeline/src", "{repo_root}/ml-pipeline/tests"]
 ml-pipeline-typecheck = ["{python}", "-m", "mypy", "--config-file", "{repo_root}/ml-pipeline/pyproject.toml", "{repo_root}/ml-pipeline/src", "{repo_root}/ml-pipeline/tests"]
-ml-pipeline-test = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests"]
+ml-pipeline-test = ["{python}", "-m", "pytest", "{repo_root}/ml-pipeline/tests", "--cov=wildlife_ml", "--cov-config={repo_root}/ml-pipeline/pyproject.toml", "--cov-report=term-missing", "--cov-fail-under=85"]
 ml-pipeline-smoke = ["{python}", "-m", "wildlife_ml.runtime.onnx_smoke"]
 integration-kiosk-mqtt = ["{python}", "-m", "pytest", "pi-display-node/tests/test_integration_mqtt.py"]
 integration-firmware-format = ["{python}", "-m", "pytest", "pi-display-node/tests/test_integration_firmware_format.py"]

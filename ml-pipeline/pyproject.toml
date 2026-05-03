@@ -44,3 +44,22 @@ mypy_path = ["src"]
 [[tool.mypy.overrides]]
 module = ["onnxruntime"]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["wildlife_ml"]
+omit = [
+    "*/wildlife_ml/train/*",
+    "*/wildlife_ml/runtime/onnx_smoke.py",
+    "*/wildlife_ml/runtime/__init__.py",
+    "*/wildlife_ml/export/tflite.py",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

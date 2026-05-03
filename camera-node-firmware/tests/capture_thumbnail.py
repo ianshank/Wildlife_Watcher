@@ -8,20 +8,14 @@ import os
 import sys
 import threading
 import time
+from pathlib import Path
 
-import paho.mqtt.client as mqtt  # type: ignore # pyright: ignore[reportMissingTypeStubs]
-
-
-def _make_client(client_id: str) -> mqtt.Client:
-    """paho-mqtt 1.6.x / 2.x compatible Client constructor."""
-    cb_api = getattr(mqtt, "CallbackAPIVersion", None)
-    if cb_api is not None:
-        try:
-            return mqtt.Client(cb_api.VERSION1, client_id=client_id, clean_session=True)
-        except TypeError:
-            pass
-    return mqtt.Client(client_id=client_id, clean_session=True)
-
+# Reach the repo-wide MQTT client factory under scripts/ so we have one source
+# of truth for paho-mqtt v1/v2 compatibility.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+from _mqtt_client import make_client as _make_client  # noqa: E402
 
 BROKER = os.environ.get("MQTT_BROKER", "127.0.0.1")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
@@ -74,7 +68,7 @@ det_count = 0
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        client.subscribe(f"wildlife/#")
+        client.subscribe("wildlife/#")
         print(f"[capture] Connected to MQTT broker (rc={rc}), waiting for data from {NODE_ID}...")
     else:
         print(f"[capture] Connection failed: {rc}")
@@ -89,7 +83,8 @@ def on_message(client, userdata, msg):
         try:
             p = json.loads(msg.payload)
             print(
-                f"  [Status] IP={p.get('ip')}, State={p.get('state')}, Uptime={p.get('uptime_ms')}ms"
+                f"  [Status] IP={p.get('ip')}, State={p.get('state')}, "
+                f"Uptime={p.get('uptime_ms')}ms"
             )
         except Exception:
             pass

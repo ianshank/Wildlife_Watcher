@@ -20,6 +20,7 @@ dev = [
     "hypothesis>=6.131.0",
     "mypy>=1.15.0",
     "numpy>=1.26,<3.0",
+    "paramiko>=3.0.0",
     "pre-commit>=4.1.0",
     "pytest",
     "pytest-cov",

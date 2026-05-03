@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -52,7 +55,9 @@ def build_vela_command(
 def run_vela(tflite_model: Path, output_dir: Path, *, dry_run: bool = False) -> int:
     command = build_vela_command(tflite_model, output_dir)
     if dry_run:
-        print(" ".join(str(part) for part in command))
+        log.info("dry run: %s", " ".join(str(part) for part in command))
         return 0
+    log.debug("running: %s", " ".join(str(part) for part in command))
     completed = subprocess.run(command, check=False)
+    log.debug("returncode: %d", completed.returncode)
     return completed.returncode
