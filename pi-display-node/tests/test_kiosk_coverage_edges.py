@@ -48,21 +48,25 @@ def test_load_config_exits_when_file_is_missing(tmp_path, monkeypatch):
     assert excinfo.value.code == 2
 
 
-def test_mqtt_bridge_start_stop_and_failed_connect(test_config):
+def test_mqtt_bridge_start_stop_and_failed_connect(test_config, monkeypatch):
     events: queue.Queue[object] = queue.Queue()
     bridge = MqttBridge(test_config, events)
-    bridge._client.connect = MagicMock(side_effect=RuntimeError("boom"))
-    bridge._client.loop_start = MagicMock()
-    bridge._client.loop_stop = MagicMock()
-    bridge._client.disconnect = MagicMock()
+    connect_mock = MagicMock(side_effect=RuntimeError("boom"))
+    loop_start_mock = MagicMock()
+    loop_stop_mock = MagicMock()
+    disconnect_mock = MagicMock()
+    monkeypatch.setattr(bridge._client, "connect", connect_mock)
+    monkeypatch.setattr(bridge._client, "loop_start", loop_start_mock)
+    monkeypatch.setattr(bridge._client, "loop_stop", loop_stop_mock)
+    monkeypatch.setattr(bridge._client, "disconnect", disconnect_mock)
 
     bridge.start()
     bridge.stop()
 
-    bridge._client.connect.assert_called_once()
-    bridge._client.loop_start.assert_called_once()
-    bridge._client.loop_stop.assert_called_once()
-    bridge._client.disconnect.assert_called_once()
+    connect_mock.assert_called_once()
+    loop_start_mock.assert_called_once()
+    loop_stop_mock.assert_called_once()
+    disconnect_mock.assert_called_once()
 
 
 def test_mqtt_bridge_on_connect_nonzero_rc_does_not_subscribe(test_config):
@@ -89,9 +93,7 @@ def test_tick_handles_exceptions_and_offline_status(kiosk_window, monkeypatch):
     events.put(
         StatusEvent(node_id="node-1", state="online", ip="1.2.3.4", ts="2026-05-01T12:00:00Z")
     )
-    events.put(
-        StatusEvent(node_id="node-1", state="offline", ip=None, ts="2026-05-01T12:01:00Z")
-    )
+    events.put(StatusEvent(node_id="node-1", state="offline", ip=None, ts="2026-05-01T12:01:00Z"))
     monkeypatch.undo()
     window._tick()
 
@@ -176,9 +178,7 @@ def test_detail_view_render_and_timestamp_helpers(qtbot):
     assert detail.caption.text() == "bird 80% · node-1"
     assert detail.image_label.pixmap() is not None
     expected_short = (
-        datetime.fromisoformat("2026-05-01T12:34:56+00:00")
-        .astimezone()
-        .strftime("%H:%M:%S")
+        datetime.fromisoformat("2026-05-01T12:34:56+00:00").astimezone().strftime("%H:%M:%S")
     )
     assert wildlife_kiosk._short_ts("2026-05-01T12:34:56Z") == expected_short
     assert wildlife_kiosk._short_ts("") == "        "
@@ -286,6 +286,7 @@ def _make_detection(**overrides) -> DetectionEvent:
 
 # --- line 104: load_config() successful return ---
 
+
 def test_load_config_returns_dict_for_valid_file(tmp_path, monkeypatch):
     """load_config() returns the parsed dict when the file is valid (line 104)."""
     cfg_path = tmp_path / "config.yaml"
@@ -298,6 +299,7 @@ def test_load_config_returns_dict_for_valid_file(tmp_path, monkeypatch):
 
 
 # --- lines 211-212: MqttBridge._on_message exception handler ---
+
 
 def test_on_message_exception_is_caught(test_config):
     """_on_message logs and swallows JSON parse errors (lines 211-212)."""
@@ -312,6 +314,7 @@ def test_on_message_exception_is_caught(test_config):
 
 # --- line 256: _handle_thumb returns early for wrong topic parts ---
 
+
 def test_handle_thumb_wrong_topic_parts(test_config):
     """_handle_thumb discards messages with malformed topic (line 256)."""
     events: queue.Queue[object] = queue.Queue()
@@ -325,6 +328,7 @@ def test_handle_thumb_wrong_topic_parts(test_config):
 
 # --- lines 377-378: Storage.close() ---
 
+
 def test_storage_close(mock_db_path):
     """Storage.close() releases the SQLite connection (lines 377-378)."""
     storage = Storage(mock_db_path)
@@ -336,6 +340,7 @@ def test_storage_close(mock_db_path):
 
 
 # --- lines 460-461: fullscreen mode ---
+
 
 def test_kiosk_fullscreen_mode(qtbot, test_config, mock_db_path):
     """WildlifeKiosk applies fullscreen cursor and showFullScreen (lines 460-461)."""
@@ -349,6 +354,7 @@ def test_kiosk_fullscreen_mode(qtbot, test_config, mock_db_path):
 
 
 # --- lines 541, 544-552: _load_initial_feed / _add_feed_row_from_db ---
+
 
 def test_load_initial_feed_from_existing_db(qtbot, test_config, mock_db_path):
     """Window pre-populates the feed from existing DB observations (lines 541, 544-552)."""
@@ -367,6 +373,7 @@ def test_load_initial_feed_from_existing_db(qtbot, test_config, mock_db_path):
 
 # --- line 557: _trim_feed removes rows beyond max_feed_rows ---
 
+
 def test_trim_feed_removes_excess_items(kiosk_window):
     """_trim_feed prunes items when count exceeds max_feed_rows (line 557)."""
     window, events, _storage, _bridge = kiosk_window
@@ -379,6 +386,7 @@ def test_trim_feed_removes_excess_items(kiosk_window):
 
 # --- line 586: confidence below threshold early return ---
 
+
 def test_handle_detection_below_confidence(kiosk_window):
     """_handle_detection skips event below min_confidence_to_show (line 586)."""
     window, events, _storage, _bridge = kiosk_window
@@ -389,6 +397,7 @@ def test_handle_detection_below_confidence(kiosk_window):
 
 
 # --- lines 592-596: cached thumbnail triggers QBuffer encode path ---
+
 
 def test_handle_detection_thumb_in_cache_already(kiosk_window):
     """Detection reuses thumb already in cache (lines 592-596)."""
@@ -403,9 +412,11 @@ def test_handle_detection_thumb_in_cache_already(kiosk_window):
 
 # --- lines 628-629: date rollover resets daily counter ---
 
+
 def test_date_rollover_resets_event_count(kiosk_window):
     """Daily counter resets when date changes mid-session (lines 628-629)."""
     from datetime import timezone as _tz
+
     window, events, _storage, _bridge = kiosk_window
     window._today_date = "2000-01-01"
     window._events_today_count = 99
@@ -418,6 +429,7 @@ def test_date_rollover_resets_event_count(kiosk_window):
 
 # --- lines 639, 641: bad JPEG in _handle_thumbnail ---
 
+
 def test_handle_thumbnail_bad_jpeg(kiosk_window):
     """_handle_thumbnail warns and discards non-JPEG payload (lines 639, 641)."""
     window, events, _storage, _bridge = kiosk_window
@@ -427,6 +439,7 @@ def test_handle_thumbnail_bad_jpeg(kiosk_window):
 
 
 # --- line 711: _on_feed_clicked early return when no obs_id ---
+
 
 def test_on_feed_clicked_no_obs_id(kiosk_window):
     """_on_feed_clicked returns early when item carries no obs id (line 711)."""
@@ -438,6 +451,7 @@ def test_on_feed_clicked_no_obs_id(kiosk_window):
 
 
 # --- line 714: _on_feed_clicked early return when no jpeg in DB ---
+
 
 def test_on_feed_clicked_no_jpeg_in_db(kiosk_window):
     """_on_feed_clicked returns early when DB has no thumbnail (line 714)."""
@@ -452,22 +466,33 @@ def test_on_feed_clicked_no_jpeg_in_db(kiosk_window):
 
 # --- line 717: _on_feed_clicked early return when QImage is null ---
 
+
 def test_on_feed_clicked_corrupt_jpeg(kiosk_window):
     """_on_feed_clicked returns early when stored bytes are not a valid JPEG (line 717)."""
     window, _events, storage, _bridge = kiosk_window
     obs_id = storage.insert_detection(_make_detection(), b"corrupt-bytes")
     item = QListWidgetItem("corrupt")
-    item.setData(QT_USER_ROLE, {
-        "id": obs_id, "ts": "2026-05-01T12:00:00Z",
-        "node_id": "node1", "frame_id": "frame1",
-        "class_name": "bird", "confidence": 0.9,
-        "bbox_x": 0, "bbox_y": 0, "bbox_w": 1, "bbox_h": 1,
-    })
+    item.setData(
+        QT_USER_ROLE,
+        {
+            "id": obs_id,
+            "ts": "2026-05-01T12:00:00Z",
+            "node_id": "node1",
+            "frame_id": "frame1",
+            "class_name": "bird",
+            "confidence": 0.9,
+            "bbox_x": 0,
+            "bbox_y": 0,
+            "bbox_w": 1,
+            "bbox_h": 1,
+        },
+    )
     window._on_feed_clicked(item)
     assert window.stack.currentIndex() == 0
 
 
 # --- line 729: _on_tile_clicked skips empty tile ---
+
 
 def test_on_tile_clicked_empty_tile(kiosk_window):
     """_on_tile_clicked returns early when tile has no pixmap (line 729)."""
@@ -478,6 +503,7 @@ def test_on_tile_clicked_empty_tile(kiosk_window):
 
 
 # --- lines 832-833, 837: DetailView.resizeEvent + _render early return ---
+
 
 def test_detail_view_resize_event_and_early_render(qtbot):
     """resizeEvent fires _render; _render returns early when no pixmap (lines 832-833, 837)."""
@@ -502,4 +528,3 @@ def test_detail_view_resize_event_and_early_render(qtbot):
     detail.resizeEvent(resize_ev)
 
     assert detail.image_label.pixmap() is not None
-

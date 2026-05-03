@@ -4,8 +4,25 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 ## Unreleased
 
+### Fixed (review-pass 2)
+
+- **Race in `verify_e2e_journey.py`**: step 3/4 now polls the Pi's `observations.db` for up to 12 s instead of a single read, waiting for both the detection row and (when injected) the populated `thumb_jpeg` column. Adds a 250 ms inter-publish gap between detection and retained thumbnail to prefer in-order processing on the kiosk side.
+- **MITM exposure in `deploy.py`**: SSH host-key handling now defaults to `paramiko.RejectPolicy()` after loading the user's `known_hosts`. Set `PI_HOST_KEY_POLICY=auto` (logs a warning) to opt back into `AutoAddPolicy`. `PI_KNOWN_HOSTS` overrides the host-key file location.
+- **Camera-node embedded broker shutdown race** (`camera-node-firmware/tests/conftest.py`): replaced abrupt `loop.call_soon_threadsafe(loop.stop)` teardown with a cooperative `stop_requested: threading.Event` plus `await broker.shutdown()`, mirroring the pi-display-node fixture. Eliminates `Event loop stopped before Future completed` errors in session teardown.
+- **Path resolution in camera conftest**: `include/secrets.h` and the `pio run` working directory are now anchored to `Path(__file__).resolve().parent.parent`, so `pytest camera-node-firmware/tests` works regardless of `cwd`.
+- **Unusable placeholder `secrets.h`**: when `FLASH_FIRMWARE=1` and `secrets.h` is missing, the fixture now reads `WIFI_SSID` / `WIFI_PASSWORD` (and optionally `MQTT_BROKER_FIRMWARE`) from the environment and `pytest.fail`s with a clear message if either is missing — no more silently-flashed devices with `YOUR_SSID` / `YOUR_PASSWORD`.
+- **HIL thumbnail tests on stock Grove model**: `test_thumbnail_published` and `test_thumbnail_topic_contains_frame_id` are now `@pytest.mark.skipif`-gated on `THUMBNAILS_ENABLED=1`, since the stock Phase 1 firmware skips JPEG publishing when `AI.last_image()` returns nothing (see `docs/07-next-steps.md` §Camera-side Thumbnail Preview).
+- **Misleading docstring** in `scripts/verify_pi_roundtrip.py`: clarified that the script is read-only Pi diagnostics, with a pointer to `verify_e2e_journey.py` for actual MQTT round-trips.
+- **Late-joiner test compatibility**: `test_hardware_integration.py::test_status_message_is_retained` now uses the shared `_make_client()` helper from `conftest.py`, picking up the paho-mqtt v1/v2 callback-API auto-detection introduced in the previous review pass.
+
 ### Added
 
+- Live end-to-end user-journey validator at `scripts/verify_e2e_journey.py`. Four-stage check against the deployed pipeline: (1) confirms the real XIAO camera is publishing `wildlife/status/<node>` heartbeats, (2) injects a synthetic-camera detection plus retained base64 JPEG thumbnail to the production broker, (3) SSHes to the Pi and verifies the row landed in `/var/lib/wildlife/observations.db` with every column matching the injected payload, (4) byte-compares the stored `thumb_jpeg` BLOB against the bytes published. Exit code 0 only when every stage passes.
+- Operational Pi-diagnostic script suite under `scripts/`: `verify_pi_live.py` (broker liveness + heartbeat watch), `verify_pi_diagnose.py` (mosquitto + kiosk + DB triage), `verify_pi_deepdive.py` (deeper systemd / log inspection), `verify_pi_roundtrip.py` (synthetic publish + DB read-back), and `read_xiao_serial.py` (timed serial capture from the camera).
+- Shared SSH-credential loader `scripts/_pi_creds.py`: every Pi-touching script now reads `PI_HOST` / `PI_USER` / `PI_PASS` from the environment (no secrets in source).
+- New integration-test slice and harness tasks (`integration-kiosk-mqtt`, `integration-firmware-format`, `integration-schema-parity`, `integration-manifest-parity`, `integration-all`) that prove the kiosk MQTT lifecycle, firmware thumbnail framing, SQLite schema parity, and class-table/manifest parity end-to-end without Mosquitto.
+- Cross-component integration & E2E roadmap at `docs/08-integration-e2e-plan.md`.
+- `typings/` directory with PEP 561 stubs for `paho.mqtt.client` and `amqtt.broker` so the kiosk and integration tests typecheck without third-party stub dependencies.
 - Extended harness typecheck scope to include `pi-display-node/tests` (9 source files total: 5 kiosk sources + 4 test files).
 - Created `phase2/camera-node-firmware/include/wildlife/class_names.h` abstraction layer for inline class-label lookup without Arduino dependency.
 - Added 4 Unity firmware tests for class_names and PowerManager stubs (8 total native tests).
@@ -49,6 +66,11 @@ All notable changes to this workspace-ready repo slice are documented in this fi
 
 ### Fixed
 
+- Removed hard-coded Pi SSH password (`M@ng0M00`) from `deploy.py` and all `verify_pi_*.py` scripts; routed every credential through `scripts/_pi_creds.load()` reading `PI_PASS` (and `BROKER_PASS` for `deploy.py`).
+- Documented the SSCMA `last_image()` thumbnail caveat in `camera-node-firmware/src/main.cpp`: `AI.invoke(...,show=true)` regresses detection on the stock Grove Vision AI V2 model, so the firmware keeps `AI.invoke()` defaults and skips thumbnail publishing quietly until a preview-capable model is deployed.
+- `pi-display-node/install.sh` now installs apt prerequisites (mosquitto, sqlite3, python3-venv, PyQt5, X server stack), respects `BROKER_USER`/`BROKER_PASS` env vars for unattended runs, and points `sqlite3 < schema/observations.sql` at the correct path next to the script.
+- `pi-display-node/mosquitto/wildlife.conf` no longer redeclares `persistence`/`log_dest` from Debian's base `mosquitto.conf`, eliminating duplicate-config warnings on broker start.
+- Set the XIAO `upload_speed` back to a stable `460800` after the 921600 setting proved unreliable on the USB-CDC adapter; documented the `esptool ... --before usb_reset` 115k fallback in the firmware bring-up notes.
 - Hardened kiosk regressions around MQTT lifecycle, UI edge flows, storage behavior, and thumbnail handling.
 - Added editor-compatibility wrappers and stub headers for the original firmware tree and the Phase 2 firmware tree.
 - Removed stale Jetson-oriented scope from project documentation and phase planning.

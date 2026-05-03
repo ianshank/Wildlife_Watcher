@@ -24,6 +24,11 @@
 - Firmware build: `python .agents/harness/orchestrator.py firmware-build`
 - Phase 2 firmware build: `python .agents/harness/orchestrator.py firmware-build-phase2`
 - Phase 2 native tests: `python .agents/harness/orchestrator.py firmware-test-native`
+- Kiosk MQTT integration: `python .agents/harness/orchestrator.py integration-kiosk-mqtt`
+- Firmware topic/thumb round-trip: `python .agents/harness/orchestrator.py integration-firmware-format`
+- Kiosk/schema parity check: `python .agents/harness/orchestrator.py integration-schema-parity`
+- Firmware/manifest parity check: `python .agents/harness/orchestrator.py integration-manifest-parity`
+- Full integration slice: `python .agents/harness/orchestrator.py integration-all`
 - Phase 3 lint: `python .agents/harness/orchestrator.py ml-pipeline-lint`
 - Phase 3 type check: `python .agents/harness/orchestrator.py ml-pipeline-typecheck`
 - Phase 3 tests: `python .agents/harness/orchestrator.py ml-pipeline-test`

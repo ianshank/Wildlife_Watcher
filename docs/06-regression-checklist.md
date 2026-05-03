@@ -86,7 +86,27 @@ Expected result:
 - pytest passes on the export and augmentation tests (14 tests including ExportManifest validation and hypothesis property tests)
 - the CPU-only ONNX smoke check completes without requiring a Jetson runtime
 
-## Test 6: Reviewer handoff docs
+## Test 6: Cross-component parity checks
+
+If the change touches MQTT topic formatting, thumbnail encoding, the SQLite schema, kiosk storage writes, firmware class table, or export manifest labels, run:
+
+```powershell
+python .agents/harness/orchestrator.py integration-kiosk-mqtt
+python .agents/harness/orchestrator.py integration-firmware-format
+python .agents/harness/orchestrator.py integration-schema-parity
+python .agents/harness/orchestrator.py integration-manifest-parity
+python .agents/harness/orchestrator.py integration-all
+```
+
+Expected result:
+
+- the kiosk can subscribe to an embedded broker and persist a full status + detection + thumbnail flow without Mosquitto
+- firmware thumbnail topics and base64 payloads still round-trip into the kiosk thumbnail event contract
+- the kiosk test suite initializes SQLite from `pi-display-node/schema/observations.sql` rather than an inline duplicate
+- `Storage` reads and writes remain compatible with the checked-in schema and index set
+- the committed export-manifest fixture stays aligned with the Phase 2 `WILDLIFE_CLASS_NAMES` table
+
+## Test 7: Reviewer handoff docs
 
 Before opening a PR, verify these reviewer entry points are still accurate:
 
@@ -105,3 +125,26 @@ Each of those files should agree on three facts:
 
 - The repo is Git-backed now, but GitHub repository settings should still be checked so the default branch is `main` rather than stale `civ` metadata.
 - PlatformIO-based checks depend on a local toolchain and may need to be called out as not run.
+- The broader MQTT broker, thumbnail reassembly, and host-level system-integration slices remain planned in `08-integration-e2e-plan.md` and are not automated yet.
+
+## Test 8: Live end-to-end user-journey validation
+
+Run this against the deployed Pi + camera before sign-off when any of the following changed: firmware MQTT publish path, kiosk subscribe / parse / persist path, SQLite schema, or thumbnail framing. It is the only check in this checklist that touches real hardware.
+
+Prerequisites: the camera is powered, the Pi is reachable on the LAN, and you know the Pi SSH password and broker password.
+
+```powershell
+$env:PI_PASS   = '<pi-ssh-password>'
+$env:MQTT_PASS = '<broker-password>'
+.\.venv\Scripts\python.exe scripts/verify_e2e_journey.py
+Remove-Item env:PI_PASS; Remove-Item env:MQTT_PASS
+```
+
+Expected result (exit code 0):
+
+- **step1** observes a `wildlife/status/<camera-node-id>` heartbeat from the real XIAO within 10 seconds.
+- **step2** publishes a synthetic detection plus a retained base64 thumbnail to the production broker as `e2e-test-cam` and both publishes are acked.
+- **step3** finds the unique `frame_id` in `/var/lib/wildlife/observations.db` over SSH and confirms every column (`ts`, `node_id`, `frame_id`, `class_name`, `class_id`, `confidence`, `bbox_*`, `model`) matches the injected payload.
+- **step4** byte-compares the stored `thumb_jpeg` BLOB against the JPEG sent in step 2 — proves the base64 → MQTT → `ThumbCache.put` (QImage validation) → `Storage.update_thumb` chain is intact.
+
+If step 1 fails but the rest pass, the kiosk pipeline is healthy and the camera node needs investigation (see `05-troubleshooting.md` and `scripts/verify_pi_diagnose.py`). If step 4 fails after step 3 passes, the JPEG is reaching the kiosk but `ThumbCache.put` is rejecting it as an invalid image — common when a model export changes the JPEG framing.

@@ -109,6 +109,21 @@ This workspace currently keeps phase isolation in-repo even though Git worktrees
 
 That separation allows Phase 2 and Phase 3 work to evolve without destabilizing the deployed kiosk and firmware path.
 
+## Operational Tooling — Live Validation Surface
+
+Under `scripts/` the repo carries a Python operational-tooling layer that runs from the developer workstation against the deployed Pi + camera, complementing the in-repo unit, integration, and native firmware suites.
+
+| Script | Responsibility |
+| --- | --- |
+| `_pi_creds.py` | Single source of truth for Pi SSH credentials (`PI_HOST`/`PI_USER`/`PI_PASS` env vars). All other scripts import it; no passwords live in source. |
+| `verify_pi_live.py` | Pings the Pi, asserts mosquitto is listening, and watches `wildlife/status/+` for camera heartbeats. |
+| `verify_pi_diagnose.py` / `verify_pi_deepdive.py` | Triage helpers: inspect mosquitto/kiosk/SSH state and pull recent journals when the live check is unhappy. |
+| `verify_pi_roundtrip.py` | Synthetic publish + remote `sqlite3` read-back to prove the kiosk consumed and persisted a detection. |
+| `verify_e2e_journey.py` | Four-stage live end-to-end validator: real camera heartbeat → synthetic-camera publish (detection + retained base64 thumbnail) → SSH-side row equality check on `observations.db` → byte-identity comparison of the stored `thumb_jpeg` BLOB. Exit 0 only on full pass. |
+| `read_xiao_serial.py` | Timed USB-serial capture from the XIAO (port/baud/duration overridable via `XIAO_PORT`/`XIAO_BAUD`/`XIAO_READ_SECS`). |
+
+This layer is intentionally outside the unit-test perimeter: it touches a real Pi over SSH and a real broker over MQTT, and it is the post-deploy gate that exercises the same publish path the camera takes (impersonating a node) so any kiosk-side parsing / persistence / thumbnail-attachment regression is caught before sign-off.
+
 ## Operational Constraints
 
 - GitHub repository settings should be aligned so the default branch is `main`; stale `civ` metadata will confuse compare flows, protection rules, and review defaults.
