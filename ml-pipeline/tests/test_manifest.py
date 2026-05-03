@@ -68,3 +68,18 @@ def test_manifest_rejects_blank_class_names() -> None:
             model_path=Path("weights.onnx"),
             class_names=("bird", "  "),
         )
+
+
+def test_manifest_to_summary_format() -> None:
+    cfg = OnnxExportConfig(image_size=(320, 320), opset=13)
+    m = ExportManifest.from_config(
+        model_path=Path('m.onnx'),
+        class_names=('bird', 'cat'),
+        config=cfg,
+    )
+    s = m.to_summary()
+    assert 'm.onnx' in s
+    assert 'bird, cat' in s
+    assert '320x320' in s
+    assert 'opset=13' in s
+

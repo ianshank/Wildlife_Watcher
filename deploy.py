@@ -25,6 +25,7 @@ PowerShell example:
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import sys
@@ -58,10 +59,8 @@ def _build_ssh_client() -> paramiko.SSHClient:
     known_hosts = os.environ.get(
         "PI_KNOWN_HOSTS", str(Path.home() / ".ssh" / "known_hosts")
     )
-    try:
+    with contextlib.suppress(Exception):
         client.load_system_host_keys()
-    except Exception:
-        pass
     if known_hosts and Path(known_hosts).expanduser().exists():
         try:
             client.load_host_keys(str(Path(known_hosts).expanduser()))

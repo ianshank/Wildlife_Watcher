@@ -18,13 +18,16 @@ non-broker diagnostics still run.
 
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 import sys
 from collections.abc import Iterable
 
-import paramiko  # type: ignore
 from _pi_creds import load as _load_creds
+from _ssh_client import build_ssh_client, connect
+
+log = logging.getLogger("verify_pi_roundtrip")
 
 HOST, USER, PASS = _load_creds()
 MQTT_USER = os.environ.get("MQTT_USER", "wildlife")
@@ -46,28 +49,64 @@ def _sub(topic: str, count: int, secs: int) -> str:
 
 
 # Each entry is (label, command, timeout_seconds). Commands are kept read-only.
+_DB_LOCATE = (
+    "ls /var/lib/wildlife/observations.db 2>/dev/null "
+    "|| ls /home/ian/observations.db 2>/dev/null "
+    "|| find /home /var -maxdepth 4 -name observations.db 2>/dev/null "
+    "| head -n1"
+)
+_DB_SUMMARY = (
+    f"DB=$({_DB_LOCATE}); "
+    "if [ -n \"$DB\" ]; then "
+    "  sqlite3 \"$DB\" \"SELECT COUNT(*) AS rows, "
+    "SUM(CASE WHEN thumb_jpeg IS NOT NULL THEN 1 ELSE 0 END) AS with_thumb, "
+    "MAX(ts) AS latest_ts FROM observations;\"; "
+    "  echo '--- last 5 ---'; "
+    "  sqlite3 -header -column \"$DB\" \"SELECT id, node_id, frame_id, ts, "
+    "length(thumb_jpeg) AS jpeg_bytes FROM observations "
+    "ORDER BY id DESC LIMIT 5;\"; "
+    "else echo 'no observations.db found'; fi"
+)
+_DB_PATH_LOOKUP = (
+    "ls -lh /var/lib/wildlife/observations.db 2>&1 "
+    "|| ls -lh /home/ian/observations.db 2>&1 "
+    "|| find /home /var -maxdepth 4 -name 'observations.db' 2>/dev/null"
+)
 CHECKS: list[tuple[str, str, int]] = [
-    ("uname",          "uname -a && hostname -I", 10),
-    ("mosquitto-svc",  "systemctl is-active mosquitto && systemctl --no-pager -l status mosquitto | head -n 12", 10),
-    ("mosquitto-port", "ss -ltn | grep -E ':1883|:8883' || echo 'no listener on 1883/8883'", 10),
-    ("kiosk-svc",      "systemctl is-active wildlife-kiosk.service 2>/dev/null || echo 'kiosk service inactive/missing'", 10),
-    ("recent-status",  _sub("wildlife/status/+", 5, 6), 15),
-    ("recent-detect",  _sub("wildlife/detections/+", 3, 8), 15),
-    ("recent-thumbs",  _sub("wildlife/thumbs/+/+", 1, 8) + " | head -c 300; echo", 15),
-    ("db-path",        "ls -lh /var/lib/wildlife/observations.db 2>&1 || ls -lh /home/ian/observations.db 2>&1 || find /home /var -maxdepth 4 -name 'observations.db' 2>/dev/null", 15),
-    ("db-summary",     "DB=$(ls /var/lib/wildlife/observations.db 2>/dev/null || ls /home/ian/observations.db 2>/dev/null || find /home /var -maxdepth 4 -name observations.db 2>/dev/null | head -n1); "
-                       "if [ -n \"$DB\" ]; then sqlite3 \"$DB\" \"SELECT COUNT(*) AS rows, "
-                       "SUM(CASE WHEN thumb_jpeg IS NOT NULL THEN 1 ELSE 0 END) AS with_thumb, "
-                       "MAX(ts) AS latest_ts FROM observations;\"; "
-                       "echo '--- last 5 ---'; "
-                       "sqlite3 -header -column \"$DB\" \"SELECT id, node_id, frame_id, ts, length(thumb_jpeg) AS jpeg_bytes FROM observations ORDER BY id DESC LIMIT 5;\"; "
-                       "else echo 'no observations.db found'; fi", 20),
+    ("uname", "uname -a && hostname -I", 10),
+    (
+        "mosquitto-svc",
+        "systemctl is-active mosquitto && "
+        "systemctl --no-pager -l status mosquitto | head -n 12",
+        10,
+    ),
+    (
+        "mosquitto-port",
+        "ss -ltn | grep -E ':1883|:8883' || echo 'no listener on 1883/8883'",
+        10,
+    ),
+    (
+        "kiosk-svc",
+        "systemctl is-active wildlife-kiosk.service 2>/dev/null "
+        "|| echo 'kiosk service inactive/missing'",
+        10,
+    ),
+    ("recent-status", _sub("wildlife/status/+", 5, 6), 15),
+    ("recent-detect", _sub("wildlife/detections/+", 3, 8), 15),
+    (
+        "recent-thumbs",
+        _sub("wildlife/thumbs/+/+", 1, 8) + " | head -c 300; echo",
+        15,
+    ),
+    ("db-path", _DB_PATH_LOOKUP, 15),
+    ("db-summary", _DB_SUMMARY, 20),
 ]
 
 
-def run(client: paramiko.SSHClient, label: str, command: str, timeout: int) -> int:
-    print(f"\n===== [{label}] $ {command[:120]}{'...' if len(command) > 120 else ''}")
-    stdin, stdout, stderr = client.exec_command(command, timeout=timeout, get_pty=False)
+def run(client, label: str, command: str, timeout: int) -> int:
+    truncated = command[:120] + ("..." if len(command) > 120 else "")
+    print(f"\n===== [{label}] $ {truncated}")
+    _stdin, stdout, stderr = client.exec_command(command, timeout=timeout, get_pty=False)
     rc = stdout.channel.recv_exit_status()
     out = stdout.read().decode("utf-8", errors="replace").rstrip()
     err = stderr.read().decode("utf-8", errors="replace").rstrip()
@@ -80,11 +119,11 @@ def run(client: paramiko.SSHClient, label: str, command: str, timeout: int) -> i
 
 
 def main(checks: Iterable[tuple[str, str, int]]) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     print(f"Connecting to {USER}@{HOST} ...")
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client = build_ssh_client()
     try:
-        client.connect(HOST, username=USER, password=PASS, timeout=10, banner_timeout=10, auth_timeout=10)
+        connect(client, HOST, USER, PASS)
     except Exception as exc:
         print(f"SSH connect failed: {exc}")
         return 1

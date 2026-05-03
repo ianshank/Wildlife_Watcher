@@ -5,30 +5,82 @@ explain why observations.db is empty.
 
 from __future__ import annotations
 
+import logging
 import sys
 
-import paramiko  # type: ignore
 from _pi_creds import load as _load_creds
+from _ssh_client import build_ssh_client, connect
+
+log = logging.getLogger("verify_pi_diagnose")
 
 HOST, USER, PASS = _load_creds()
 
+_KIOSK_CONFIG_PATHS = (
+    "/etc/wildlife-kiosk/config.yaml "
+    "/home/ian/pi-display-node/kiosk/config.yaml "
+    "/opt/wildlife/config.yaml"
+)
+
 CHECKS: list[tuple[str, str, int]] = [
-    ("kiosk-config-path", "ls /etc/wildlife-kiosk/config.yaml /home/ian/pi-display-node/kiosk/config.yaml /opt/wildlife/config.yaml 2>/dev/null; "
-                          "find /etc /home /opt -maxdepth 5 -name 'config.yaml' -path '*wildlife*' 2>/dev/null", 15),
-    ("kiosk-config",      "for p in /etc/wildlife-kiosk/config.yaml /home/ian/pi-display-node/kiosk/config.yaml /opt/wildlife/config.yaml; "
-                          "do [ -f \"$p\" ] && echo \"=== $p ===\" && sudo -n cat \"$p\" 2>/dev/null || cat \"$p\" 2>/dev/null; done", 15),
-    ("mosquitto-conf",    "ls /etc/mosquitto/conf.d/ 2>/dev/null; sudo -n cat /etc/mosquitto/mosquitto.conf 2>/dev/null | grep -v '^#' | grep -v '^$' | head -n 30", 15),
-    ("mosquitto-passwd",  "ls -l /etc/mosquitto/passwd 2>/dev/null; sudo -n cat /etc/mosquitto/passwd 2>/dev/null | cut -d: -f1", 10),
-    ("mosquitto-log",     "sudo -n tail -n 60 /var/log/mosquitto/mosquitto.log 2>/dev/null || tail -n 60 /var/log/mosquitto/mosquitto.log 2>&1", 15),
-    ("kiosk-journal",     "journalctl -u wildlife-kiosk.service -n 40 --no-pager 2>&1 | tail -n 40", 20),
-    ("camera-seen",       "sudo -n grep -E 'New (client|connection)' /var/log/mosquitto/mosquitto.log 2>/dev/null | tail -n 20 || echo '(need sudo)'", 15),
-    ("ip-arp",            "ip neigh | grep -E '^192\\.168\\.' | sort", 10),
+    (
+        "kiosk-config-path",
+        f"ls {_KIOSK_CONFIG_PATHS} 2>/dev/null; "
+        "find /etc /home /opt -maxdepth 5 -name 'config.yaml' "
+        "-path '*wildlife*' 2>/dev/null",
+        15,
+    ),
+    (
+        "kiosk-config",
+        f"for p in {_KIOSK_CONFIG_PATHS}; "
+        "do [ -f \"$p\" ] && echo \"=== $p ===\" && "
+        "sudo -n cat \"$p\" 2>/dev/null || cat \"$p\" 2>/dev/null; done",
+        15,
+    ),
+    (
+        "mosquitto-conf",
+        "ls /etc/mosquitto/conf.d/ 2>/dev/null; "
+        "sudo -n cat /etc/mosquitto/mosquitto.conf 2>/dev/null "
+        "| grep -v '^#' | grep -v '^$' | head -n 30",
+        15,
+    ),
+    (
+        "mosquitto-passwd",
+        "ls -l /etc/mosquitto/passwd 2>/dev/null; "
+        "sudo -n cat /etc/mosquitto/passwd 2>/dev/null | cut -d: -f1",
+        10,
+    ),
+    (
+        "mosquitto-log",
+        "sudo -n tail -n 60 /var/log/mosquitto/mosquitto.log 2>/dev/null "
+        "|| tail -n 60 /var/log/mosquitto/mosquitto.log 2>&1",
+        15,
+    ),
+    (
+        "kiosk-journal",
+        "journalctl -u wildlife-kiosk.service -n 40 --no-pager 2>&1 "
+        "| tail -n 40",
+        20,
+    ),
+    (
+        "camera-seen",
+        "sudo -n grep -E 'New (client|connection)' "
+        "/var/log/mosquitto/mosquitto.log 2>/dev/null | tail -n 20 "
+        "|| echo '(need sudo)'",
+        15,
+    ),
+    (
+        "ip-arp",
+        "ip neigh | grep -E '^192\\.168\\.' | sort",
+        10,
+    ),
 ]
 
 
-def run(client: paramiko.SSHClient, label: str, command: str, timeout: int) -> int:
+def run(client, label: str, command: str, timeout: int) -> int:
     print(f"\n===== [{label}]")
-    stdin, stdout, stderr = client.exec_command(command, timeout=timeout, get_pty=False)
+    _stdin, stdout, stderr = client.exec_command(
+        command, timeout=timeout, get_pty=False
+    )
     rc = stdout.channel.recv_exit_status()
     out = stdout.read().decode("utf-8", errors="replace").rstrip()
     err = stderr.read().decode("utf-8", errors="replace").rstrip()
@@ -41,9 +93,9 @@ def run(client: paramiko.SSHClient, label: str, command: str, timeout: int) -> i
 
 
 def main() -> int:
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(HOST, username=USER, password=PASS, timeout=10, banner_timeout=10, auth_timeout=10)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    client = build_ssh_client()
+    connect(client, HOST, USER, PASS)
     try:
         for label, cmd, to in CHECKS:
             run(client, label, cmd, to)

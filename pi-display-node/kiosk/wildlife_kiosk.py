@@ -140,6 +140,27 @@ class StatusEvent:
 # MQTT bridge — runs in background thread
 # ---------------------------------------------------------------------------
 
+
+def _make_paho_client(client_id: str, *, clean_session: bool = True) -> mqtt.Client:
+    """Construct a paho.mqtt.Client that works on both 1.6.x and 2.x.
+
+    paho-mqtt 2.0 added a required ``CallbackAPIVersion`` positional arg.
+    Kept inline (rather than imported from ``scripts/``) so the kiosk
+    package remains self-contained when installed on the Pi.
+    """
+    cb_api = getattr(mqtt, "CallbackAPIVersion", None)
+    if cb_api is not None:
+        try:
+            return mqtt.Client(  # type: ignore[misc]
+                cb_api.VERSION1,
+                client_id=client_id,
+                clean_session=clean_session,
+            )
+        except TypeError:
+            pass
+    return mqtt.Client(client_id=client_id, clean_session=clean_session)
+
+
 class MqttBridge:
     """
     Wraps paho-mqtt with our topic-specific parsing logic. All inbound events
@@ -149,8 +170,8 @@ class MqttBridge:
     def __init__(self, cfg: dict[str, Any], events: queue.Queue[Any]):
         self.cfg = cfg
         self.events = events
-        self._client = mqtt.Client(
-            client_id=cfg["mqtt"]["client_id"],
+        self._client = _make_paho_client(
+            cfg["mqtt"]["client_id"],
             clean_session=True,
         )
         self._client.username_pw_set(

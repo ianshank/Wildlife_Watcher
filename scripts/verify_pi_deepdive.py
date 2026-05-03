@@ -4,11 +4,14 @@ Python kiosk (the systemd unit is a one-shot 'readiness check').
 
 from __future__ import annotations
 
+import logging
 import shlex
 import sys
 
-import paramiko  # type: ignore
 from _pi_creds import load as _load_creds
+from _ssh_client import build_ssh_client, connect
+
+log = logging.getLogger("verify_pi_deepdive")
 
 HOST, USER, PASS = _load_creds()
 
@@ -47,18 +50,29 @@ def plain(client, label, cmd, timeout=20):
 
 
 def main() -> int:
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(HOST, username=USER, password=PASS, timeout=10)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    client = build_ssh_client()
+    connect(client, HOST, USER, PASS)
     try:
         shell(client, "etc-config", "cat /etc/wildlife/config.yaml")
-        shell(client, "wildlife-conf", "cat /etc/mosquitto/conf.d/wildlife.conf")
-        shell(client, "passwd-users", "ls -l /etc/mosquitto/passwd 2>/dev/null && cut -d: -f1 /etc/mosquitto/passwd 2>/dev/null")
-        shell(client, "mosquitto-tail", "tail -n 80 /var/log/mosquitto/mosquitto.log")
-        shell(client, "kiosk-unit", "cat /etc/systemd/system/wildlife-kiosk.service 2>/dev/null || systemctl cat wildlife-kiosk.service")
-        plain(client, "py-procs", "ps -ef | grep -E 'python|wildlife|kiosk' | grep -v grep")
-        plain(client, "autostart", "ls -la /home/ian/.config/autostart/ 2>/dev/null; ls -la /etc/xdg/autostart/ 2>/dev/null | grep -i wildlife")
-        plain(client, "user-services", "systemctl --user list-units --type=service --no-pager 2>&1 | head -n 30")
+        shell(client, "wildlife-conf",
+              "cat /etc/mosquitto/conf.d/wildlife.conf")
+        shell(client, "passwd-users",
+              "ls -l /etc/mosquitto/passwd 2>/dev/null && "
+              "cut -d: -f1 /etc/mosquitto/passwd 2>/dev/null")
+        shell(client, "mosquitto-tail",
+              "tail -n 80 /var/log/mosquitto/mosquitto.log")
+        shell(client, "kiosk-unit",
+              "cat /etc/systemd/system/wildlife-kiosk.service 2>/dev/null "
+              "|| systemctl cat wildlife-kiosk.service")
+        plain(client, "py-procs",
+              "ps -ef | grep -E 'python|wildlife|kiosk' | grep -v grep")
+        plain(client, "autostart",
+              "ls -la /home/ian/.config/autostart/ 2>/dev/null; "
+              "ls -la /etc/xdg/autostart/ 2>/dev/null | grep -i wildlife")
+        plain(client, "user-services",
+              "systemctl --user list-units --type=service --no-pager 2>&1 "
+              "| head -n 30")
     finally:
         client.close()
     return 0

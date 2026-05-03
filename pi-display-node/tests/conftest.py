@@ -129,9 +129,15 @@ def broker_publisher(embedded_broker):
     after other tests have churned through the embedded broker.
     """
 
-    import paho.mqtt.client as mqtt
+    import sys
+    from pathlib import Path
 
-    client = mqtt.Client(client_id="wildlife-test-publisher")
+    _scripts = Path(__file__).resolve().parents[2] / "scripts"
+    if str(_scripts) not in sys.path:
+        sys.path.insert(0, str(_scripts))
+    from _mqtt_client import make_client  # type: ignore
+
+    client = make_client("wildlife-test-publisher")
     client.connect(str(embedded_broker["host"]), int(embedded_broker["port"]), keepalive=30)
     client.loop_start()
     try:
